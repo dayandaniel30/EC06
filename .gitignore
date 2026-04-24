@@ -1,0 +1,37 @@
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+.claude/
+
+# Laravel
+skillhub_api/vendor/
+skillhub_api/node_modules/
+skillhub_api/.env
+skillhub_api/.env.*
+!skillhub_api/.env.example
+skillhub_api/storage/logs/*
+!skillhub_api/storage/logs/.gitkeep
+skillhub_api/storage/framework/cache/data/*
+skillhub_api/storage/framework/sessions/*
+skillhub_api/storage/framework/views/*
+skillhub_api/bootstrap/cache/*.php
+skillhub_api/public/storage
+skillhub_api/public/hot
+skillhub_api/coverage.xml
+skillhub_api/.phpunit.result.cache
+
+# Spring Boot / Maven
+Skillhub_springboot/target/
+Skillhub_springboot/.mvn/
+!Skillhub_springboot/.mvn/wrapper/maven-wrapper.properties
+Skillhub_springboot/HELP.md
+
+# Logs & temp
+*.log
+*.tmp
+*.bak
+
+# Misc
+*.zip

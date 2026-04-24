@@ -1,0 +1,101 @@
+name: skillhub
+
+networks:
+  skillhub-net:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  postgres-data:
+
+services:
+  # ===== Laravel database =====
+  mysql:
+    image: mysql:8.0
+    container_name: skillhub-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: skillhubsql
+      MYSQL_ROOT_HOST: "%"
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - skillhub-net
+
+  # ===== SSO database =====
+  postgres:
+    image: postgres:16-alpine
+    container_name: skillhub-postgres
+    environment:
+      POSTGRES_DB: sso_users
+      POSTGRES_USER: sso
+      POSTGRES_PASSWORD: sso
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sso -d sso_users"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - skillhub-net
+
+  # ===== Spring Boot SSO microservice =====
+  sso:
+    build:
+      context: ./Skillhub_springboot
+      dockerfile: Dockerfile
+    container_name: skillhub-sso
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sso_users
+      SPRING_DATASOURCE_USERNAME: sso
+      SPRING_DATASOURCE_PASSWORD: sso
+      SA_JWT_SECRET: Y2hhbmdlLW1lLXNraWxsaHViLXNzby1tYXN0ZXIta2V5LTIwMjYtMzJieXRlcy1taW4=
+      JAVA_OPTS: "-Xms128m -Xmx384m"
+    ports:
+      - "8081:8081"
+    networks:
+      - skillhub-net
+
+  # ===== Laravel API =====
+  laravel:
+    build:
+      context: ./skillhub_api
+      dockerfile: Dockerfile
+    container_name: skillhub-laravel
+    depends_on:
+      mysql:
+        condition: service_healthy
+      sso:
+        condition: service_started
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      APP_KEY: base64:ez8W3CixZjpozlCIQHE/+NvyURRJNkKeZ6Yv3WZJroY=
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_DATABASE: skillhubsql
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      SSO_BASE_URL: http://sso:8081
+      SSO_JWT_ISSUER: skillhub-sso
+      SSO_JWT_AUDIENCE: skillhub-laravel
+      SSO_HTTP_TIMEOUT: "5"
+    ports:
+      - "8000:8000"
+    networks:
+      - skillhub-net
