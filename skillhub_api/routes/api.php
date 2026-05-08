@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AuthSsoController;
 use App\Http\Controllers\Api\FormationController;
 use App\Http\Controllers\Api\LearnerEnrollmentController;
+use App\Http\Controllers\Api\TrainerEnrollmentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -36,6 +37,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/formations/{formation}', [FormationController::class, 'update']);
         Route::patch('/formations/{formation}', [FormationController::class, 'update']);
         Route::delete('/formations/{formation}', [FormationController::class, 'destroy']);
+
+        Route::get('/enrollments', [TrainerEnrollmentController::class, 'index']);
+        Route::get('/formations/{formation}/learners', [TrainerEnrollmentController::class, 'showByFormation']);
     });
 
     Route::prefix('learner')->group(function () {
