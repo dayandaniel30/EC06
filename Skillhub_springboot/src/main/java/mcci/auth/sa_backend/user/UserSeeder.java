@@ -7,6 +7,13 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+/**
+ * Initialise un utilisateur de demonstration au premier demarrage.
+ *
+ * <p>Si la table {@code users} est vide, un compte est cree a partir des
+ * proprietes {@code security.seed.*}. Le mot de passe est hashe avec BCrypt
+ * avant d'etre persiste.</p>
+ */
 @Component
 public class UserSeeder implements CommandLineRunner {
 
@@ -32,6 +39,11 @@ public class UserSeeder implements CommandLineRunner {
         this.seedRole = seedRole;
     }
 
+    /**
+     * Cree le compte de demo au demarrage si la table est vide.
+     *
+     * @param args arguments transmis par Spring Boot (ignores)
+     */
     @Override
     public void run(String... args) {
         if (users.count() > 0) {

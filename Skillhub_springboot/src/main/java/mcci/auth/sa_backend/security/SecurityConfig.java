@@ -9,14 +9,35 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
+/**
+ * Configuration Spring Security du SSO.
+ *
+ * <p>Le service expose des endpoints publics ({@code /auth/**}, {@code /actuator/health})
+ * et fonctionne en mode strictement stateless : aucune session HTTP n'est creee,
+ * la securite repose uniquement sur les JWT.</p>
+ */
 @Configuration
 public class SecurityConfig {
 
+    /**
+     * Encoder BCrypt utilise pour hasher les mots de passe a la creation du compte
+     * et lors de la reinitialisation.
+     *
+     * @return un {@link BCryptPasswordEncoder} avec parametres par defaut
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * Definit la chaine de filtres de securite : pas de session, CSRF/CORS desactives,
+     * formulaire de login natif et basic auth desactives, endpoints {@code /auth/**} publics.
+     *
+     * @param http builder fourni par Spring Security
+     * @return la chaine de filtres construite
+     * @throws Exception si la configuration est invalide
+     */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
