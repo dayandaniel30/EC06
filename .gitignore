@@ -23,7 +23,10 @@ skillhub_api/coverage.xml
 skillhub_api/.phpunit.result.cache
 
 # Spring Boot / Maven
-Skillhub_springboot/target/
+Skillhub_springboot/target/*
+!Skillhub_springboot/target/site/
+Skillhub_springboot/target/site/*
+!Skillhub_springboot/target/site/apidocs/
 Skillhub_springboot/.mvn/
 !Skillhub_springboot/.mvn/wrapper/maven-wrapper.properties
 Skillhub_springboot/HELP.md

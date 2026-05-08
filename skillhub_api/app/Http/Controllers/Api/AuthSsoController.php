@@ -57,4 +57,56 @@ class AuthSsoController extends Controller
             'claims' => $request->attributes->get('sso_claims'),
         ]);
     }
+
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'username' => ['required', 'string'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Erreur de validation',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $payload = $this->ssoClient->forgotPassword((string) $request->input('username'));
+
+        if ($payload === null) {
+            return response()->json([
+                'message' => 'Service SSO indisponible',
+            ], 503);
+        }
+
+        return response()->json($payload);
+    }
+
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'token' => ['required', 'string'],
+            'newPassword' => ['required', 'string', 'min:6'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Erreur de validation',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $payload = $this->ssoClient->resetPassword(
+            (string) $request->input('token'),
+            (string) $request->input('newPassword'),
+        );
+
+        if ($payload === null) {
+            return response()->json([
+                'message' => 'Token invalide, expire ou service SSO indisponible',
+            ], 400);
+        }
+
+        return response()->json($payload);
+    }
 }

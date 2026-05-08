@@ -11,6 +11,8 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::post('/sso/login', [AuthSsoController::class, 'login']);
+Route::post('/sso/forgot-password', [AuthSsoController::class, 'forgotPassword']);
+Route::post('/sso/reset-password', [AuthSsoController::class, 'resetPassword']);
 Route::middleware('sso')->group(function () {
     Route::get('/sso/me', [AuthSsoController::class, 'me']);
 });

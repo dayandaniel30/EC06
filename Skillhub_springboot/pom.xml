@@ -103,6 +103,23 @@
 					</execution>
 				</executions>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<version>3.11.2</version>
+				<configuration>
+					<source>${java.version}</source>
+					<encoding>UTF-8</encoding>
+					<docencoding>UTF-8</docencoding>
+					<charset>UTF-8</charset>
+					<doctitle>Skillhub SSO - Spring Boot API</doctitle>
+					<windowtitle>Skillhub SSO - Spring Boot API</windowtitle>
+					<failOnError>false</failOnError>
+					<failOnWarnings>false</failOnWarnings>
+					<doclint>none</doclint>
+					<outputDirectory>${project.build.directory}/site</outputDirectory>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 </project>
