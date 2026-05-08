@@ -3,6 +3,7 @@ import "./app.css";
 import axios from "axios";
 import { apiRequest, getApiBaseUrl } from "../services/api";
 import Auth from "./Auth";
+import HomePage from "./HomePage";
 
 const formationLevelOptions = ["beginner", "intermediate", "advanced"];
 
@@ -33,6 +34,7 @@ function App() {
   const [user, setUser] = useState(function () {
     return getUserContext();
   });
+  const [showAuth, setShowAuth] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [trainerFormations, setTrainerFormations] = useState([]);
   const [trainerLoading, setTrainerLoading] = useState(false);
@@ -307,8 +309,16 @@ function App() {
     setErrorMessage("");
   }
 
+  function handleAuthLogin(nextUser) {
+    setShowAuth(false);
+    setUser(nextUser);
+  }
+
   if (!user) {
-    return <Auth onLogin={setUser} />;
+    if (showAuth) {
+      return <Auth onLogin={handleAuthLogin} />;
+    }
+    return <HomePage onRequestLogin={() => setShowAuth(true)} />;
   }
 
   if (!user.isTrainer) {
