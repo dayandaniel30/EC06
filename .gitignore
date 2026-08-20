@@ -3,6 +3,7 @@
 .vscode/
 .DS_Store
 Thumbs.db
+desktop.ini
 .claude/
 
 # Laravel
@@ -27,6 +28,10 @@ Skillhub_springboot/target/
 Skillhub_springboot/.mvn/
 !Skillhub_springboot/.mvn/wrapper/maven-wrapper.properties
 Skillhub_springboot/HELP.md
+
+# Nested git repositories (gérés séparément)
+Skillhub_backend/Skillhub_springboot/
+Skillhub_frontend/
 
 # Logs & temp
 *.log
