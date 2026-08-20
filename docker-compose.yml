@@ -1,101 +1,266 @@
+# =============================================================================
+# Skillhub - orchestration locale
+# =============================================================================
+# Services applicatifs sur un reseau prive, chacun avec sa propre base
+# (pattern Database per Service) :
+#
+#   sso-db             PostgreSQL 16   base des identifiants   -> sso-db:5432
+#   spring-sso         Spring Boot 4   authentification / JWT  -> spring-sso:8080
+#   laravel-db         MySQL 8         donnees metier          -> laravel-db:3306
+#   skillhub-laravel   Laravel 12      API metier              -> skillhub-laravel:8000
+#   skillhub-scheduler Laravel 12      taches planifiees       -> (aucun port)
+#   skillhub-frontend  React 18 / Vite  tableau de bord         -> localhost:3000
+#
+# Aucune des deux bases n'est accessible depuis l'autre microservice : la seule
+# communication autorisee entre les services est l'API REST du SSO.
+#
+# Demarrage :  docker compose up --build
+# Tests     :  docker compose --profile tests run --rm skillhub-tests
+# =============================================================================
+
 name: skillhub
 
 networks:
-  skillhub-net:
+  # Reseau prive : les conteneurs se joignent par leur nom de service, et rien
+  # n'est expose a l'exterieur en dehors des ports publies explicitement.
+  skillhub-network:
     driver: bridge
 
 volumes:
-  mysql-data:
-  postgres-data:
+  sso-db-data:
+  laravel-db-data:
 
 services:
-  # ===== Laravel database =====
-  mysql:
-    image: mysql:8.0
-    container_name: skillhub-mysql
+
+  # ===========================================================================
+  # Base de donnees du SSO (isolee du domaine metier)
+  # ===========================================================================
+  sso-db:
+    image: postgres:16-alpine
+    container_name: skillhub-sso-db
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: skillhubsql
+      POSTGRES_DB: ${SSO_DB_DATABASE:-sso_db}
+      POSTGRES_USER: ${SSO_DB_USERNAME:-sso}
+      POSTGRES_PASSWORD: ${SSO_DB_PASSWORD:-sso}
+    ports:
+      # 5433 et non 5432 : un PostgreSQL installe nativement sur la machine
+      # occupe presque toujours 5432, et Docker peut alors publier le port sans
+      # erreur tout en laissant le client atteindre le mauvais serveur.
+      # Surchargeable via SSO_DB_PORT dans .env.
+      - "${SSO_DB_PORT:-5433}:5432"
+    volumes:
+      - sso-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SSO_DB_USERNAME:-sso} -d ${SSO_DB_DATABASE:-sso_db}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    networks:
+      - skillhub-network
+
+  # ===========================================================================
+  # Microservice d'authentification
+  # ===========================================================================
+  spring-sso:
+    build:
+      context: .
+      dockerfile: Dockerfile.sso
+    image: ${REGISTRY_NAMESPACE:-skillhub}/skillhub-sso:${IMAGE_TAG:-latest}
+    container_name: skillhub-sso
+    restart: unless-stopped
+    depends_on:
+      sso-db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://sso-db:5432/${SSO_DB_DATABASE:-sso_db}
+      SPRING_DATASOURCE_USERNAME: ${SSO_DB_USERNAME:-sso}
+      SPRING_DATASOURCE_PASSWORD: ${SSO_DB_PASSWORD:-sso}
+      SA_JWT_SECRET: ${SA_JWT_SECRET:?SA_JWT_SECRET est requis - voir .env.example}
+      SA_JWT_ISSUER: ${SSO_JWT_ISSUER:-skillhub-sso}
+      SA_JWT_AUDIENCE: ${SSO_JWT_AUDIENCE:-skillhub-laravel}
+      SA_JWT_EXPIRATION_SECONDS: ${SSO_JWT_EXPIRATION_SECONDS:-3600}
+      SA_SEED_USERNAME: ${SSO_SEED_USERNAME:-apprenant@skillhub.test}
+      SA_SEED_PASSWORD: ${SSO_SEED_PASSWORD:-Skillhub123!}
+      SA_SEED_ROLE: ${SSO_SEED_ROLE:-APPRENANT}
+      JAVA_OPTS: ${SSO_JAVA_OPTS:--XX:MaxRAMPercentage=75.0}
+    ports:
+      - "${SSO_PORT:-8080}:8080"
+    networks:
+      - skillhub-network
+
+  # ===========================================================================
+  # Base de donnees metier
+  # ===========================================================================
+  laravel-db:
+    image: mysql:8.0
+    container_name: skillhub-laravel-db
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${LARAVEL_DB_PASSWORD:-root}
+      MYSQL_DATABASE: ${LARAVEL_DB_DATABASE:-skillhubsql}
       MYSQL_ROOT_HOST: "%"
     ports:
-      - "3307:3306"
+      - "${LARAVEL_DB_PORT:-3307}:3306"
     volumes:
-      - mysql-data:/var/lib/mysql
+      - laravel-db-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      test:
+        - CMD
+        - mysqladmin
+        - ping
+        - -h
+        - 127.0.0.1
+        - -uroot
+        - -p${LARAVEL_DB_PASSWORD:-root}
       interval: 5s
       timeout: 3s
       retries: 20
+      start_period: 20s
     networks:
-      - skillhub-net
+      - skillhub-network
 
-  # ===== SSO database =====
-  postgres:
-    image: postgres:16-alpine
-    container_name: skillhub-postgres
-    environment:
-      POSTGRES_DB: sso_users
-      POSTGRES_USER: sso
-      POSTGRES_PASSWORD: sso
-    ports:
-      - "5433:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sso -d sso_users"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-    networks:
-      - skillhub-net
-
-  # ===== Spring Boot SSO microservice =====
-  sso:
+  # ===========================================================================
+  # API metier
+  # ===========================================================================
+  skillhub-laravel:
     build:
-      context: ./Skillhub_springboot
-      dockerfile: Dockerfile
-    container_name: skillhub-sso
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sso_users
-      SPRING_DATASOURCE_USERNAME: sso
-      SPRING_DATASOURCE_PASSWORD: sso
-      SA_JWT_SECRET: Y2hhbmdlLW1lLXNraWxsaHViLXNzby1tYXN0ZXIta2V5LTIwMjYtMzJieXRlcy1taW4=
-      JAVA_OPTS: "-Xms128m -Xmx384m"
-    ports:
-      - "8081:8081"
-    networks:
-      - skillhub-net
-
-  # ===== Laravel API =====
-  laravel:
-    build:
-      context: ./skillhub_api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.laravel
+      # Cible explicite : Dockerfile.laravel se termine par l'etape `test`, que
+      # Docker construirait par defaut et qui lance PHPUnit au lieu de servir l'API.
+      target: runtime
+    image: ${REGISTRY_NAMESPACE:-skillhub}/skillhub-laravel:${IMAGE_TAG:-latest}
     container_name: skillhub-laravel
+    restart: unless-stopped
     depends_on:
-      mysql:
+      laravel-db:
         condition: service_healthy
-      sso:
+      spring-sso:
         condition: service_started
     environment:
-      APP_ENV: local
-      APP_DEBUG: "true"
-      APP_URL: http://localhost:8000
-      APP_KEY: base64:ez8W3CixZjpozlCIQHE/+NvyURRJNkKeZ6Yv3WZJroY=
+      APP_NAME: ${APP_NAME:-Skillhub}
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      APP_URL: ${APP_URL:-http://localhost:8000}
+      APP_KEY: ${APP_KEY:?APP_KEY est requis - voir .env.example}
+      LOG_CHANNEL: ${LOG_CHANNEL:-stderr}
+
       DB_CONNECTION: mysql
-      DB_HOST: mysql
+      DB_HOST: laravel-db
       DB_PORT: "3306"
-      DB_DATABASE: skillhubsql
-      DB_USERNAME: root
-      DB_PASSWORD: root
-      SSO_BASE_URL: http://sso:8081
-      SSO_JWT_ISSUER: skillhub-sso
-      SSO_JWT_AUDIENCE: skillhub-laravel
-      SSO_HTTP_TIMEOUT: "5"
+      DB_DATABASE: ${LARAVEL_DB_DATABASE:-skillhubsql}
+      DB_USERNAME: ${LARAVEL_DB_USERNAME:-root}
+      DB_PASSWORD: ${LARAVEL_DB_PASSWORD:-root}
+
+      # Adresse interne au reseau Docker : le SSO n'est jamais joint via localhost.
+      SSO_BASE_URL: http://spring-sso:8080
+      SSO_JWT_ISSUER: ${SSO_JWT_ISSUER:-skillhub-sso}
+      SSO_JWT_AUDIENCE: ${SSO_JWT_AUDIENCE:-skillhub-laravel}
+      SSO_HTTP_TIMEOUT: ${SSO_HTTP_TIMEOUT:-5}
+
+      USER_INACTIVITY_DAYS: ${USER_INACTIVITY_DAYS:-180}
     ports:
-      - "8000:8000"
+      - "${LARAVEL_PORT:-8000}:8000"
     networks:
-      - skillhub-net
+      - skillhub-network
+
+  # ===========================================================================
+  # Ordonnanceur Laravel (regle metier Q1)
+  # ===========================================================================
+  # Service separe plutot qu'un processus d'arriere-plan dans le conteneur API :
+  # les taches planifiees restent observables (`docker compose logs scheduler`)
+  # et l'API peut etre redemarree ou repliquee sans dupliquer les executions.
+  # ===========================================================================
+  skillhub-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.laravel
+      target: runtime
+    image: ${REGISTRY_NAMESPACE:-skillhub}/skillhub-laravel:${IMAGE_TAG:-latest}
+    container_name: skillhub-scheduler
+    restart: unless-stopped
+    depends_on:
+      skillhub-laravel:
+        condition: service_started
+    environment:
+      APP_NAME: ${APP_NAME:-Skillhub}
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-false}
+      APP_KEY: ${APP_KEY:?APP_KEY est requis - voir .env.example}
+      LOG_CHANNEL: ${LOG_CHANNEL:-stderr}
+
+      DB_CONNECTION: mysql
+      DB_HOST: laravel-db
+      DB_PORT: "3306"
+      DB_DATABASE: ${LARAVEL_DB_DATABASE:-skillhubsql}
+      DB_USERNAME: ${LARAVEL_DB_USERNAME:-root}
+      DB_PASSWORD: ${LARAVEL_DB_PASSWORD:-root}
+
+      USER_INACTIVITY_DAYS: ${USER_INACTIVITY_DAYS:-180}
+
+      # Les migrations sont appliquees par le conteneur API : l'ordonnanceur ne
+      # doit pas les rejouer en parallele au demarrage.
+      SKIP_MIGRATIONS: "true"
+    command: ["php", "artisan", "schedule:work"]
+    # L'image porte un HEALTHCHECK HTTP destine a l'API. Ce conteneur ne sert
+    # aucune requete : on verifie donc que le processus d'ordonnancement tourne,
+    # sinon il serait signale `unhealthy` en permanence.
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'schedule:work' > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - skillhub-network
+
+  # ===========================================================================
+  # Tableau de bord formateur (React)
+  # ===========================================================================
+  # Servi par le serveur de developpement de Vite.
+  # ===========================================================================
+  skillhub-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    image: ${REGISTRY_NAMESPACE:-skillhub}/skillhub-frontend:${IMAGE_TAG:-latest}
+    container_name: skillhub-frontend
+    restart: unless-stopped
+    depends_on:
+      skillhub-laravel:
+        condition: service_started
+    environment:
+      # Adresse vue par le NAVIGATEUR, et non par le conteneur : le dashboard
+      # s'execute chez le client, ou le nom `skillhub-laravel` n'existe pas.
+      VITE_API_BASE_URL: ${FRONTEND_API_BASE_URL:-http://localhost:8000}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    networks:
+      - skillhub-network
+
+  # ===========================================================================
+  # Suite de tests (profil `tests` : ne demarre pas avec `docker compose up`)
+  # ===========================================================================
+  # Conteneur jetable bati sur la cible `test` de Dockerfile.laravel, qui ajoute
+  # PHPUnit et pdo_sqlite a l'image d'execution. Les tests tournent sur SQLite
+  # en memoire : ce service ne depend d'aucune base et n'altere jamais les
+  # donnees de `laravel-db`.
+  #
+  #   docker compose --profile tests run --rm skillhub-tests
+  # ===========================================================================
+  skillhub-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.laravel
+      target: test
+    image: ${REGISTRY_NAMESPACE:-skillhub}/skillhub-laravel-tests:${IMAGE_TAG:-latest}
+    profiles: ["tests"]
+    environment:
+      APP_ENV: testing
+      APP_KEY: ${APP_KEY:?APP_KEY est requis - voir .env.example}
+      LOG_CHANNEL: stderr
+    networks:
+      - skillhub-network

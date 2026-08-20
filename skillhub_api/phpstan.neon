@@ -1,0 +1,23 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    # Niveau 5 : verifie les types d'arguments, de retour et de proprietes.
+    # C'est le palier demande par le cahier des charges pour l'etape Lint.
+    level: 5
+
+    paths:
+        - app
+        - config
+        - database
+        - routes
+
+    # Les migrations anonymes et les caches framework n'apportent rien a l'analyse.
+    excludePaths:
+        - bootstrap/cache
+        - storage
+
+    # Laravel resout beaucoup de choses au runtime (facades, macros, conteneur) :
+    # on evite de transformer ces dynamismes en faux positifs bloquants.
+    checkModelProperties: false
+    reportUnmatchedIgnoredErrors: false

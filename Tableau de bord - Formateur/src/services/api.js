@@ -4,7 +4,9 @@ function normalizeBase(url) {
 
 function getApiBaseCandidates() {
   const candidates = [];
-  const envBase = normalizeBase(process.env.REACT_APP_API_BASE_URL);
+  // Vite expose les variables VITE_* via import.meta.env ; process.env n'existe
+  // pas dans le navigateur, contrairement a ce que faisait Create React App.
+  const envBase = normalizeBase(import.meta.env.VITE_API_BASE_URL);
 
   if (envBase) {
     candidates.push(envBase);

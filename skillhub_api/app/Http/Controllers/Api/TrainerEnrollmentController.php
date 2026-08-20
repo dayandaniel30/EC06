@@ -14,7 +14,7 @@ class TrainerEnrollmentController extends Controller
     {
         $user = $request->user();
 
-        if (!$user || (string) $user->role !== 'formateur') {
+        if (! $user || (string) $user->role !== 'formateur') {
             return response()->json([
                 'message' => 'Action reservee aux formateurs',
             ], 403);
@@ -29,12 +29,13 @@ class TrainerEnrollmentController extends Controller
             return response()->json([
                 'message' => 'Apprenants inscrits recuperes',
                 'data' => [],
+                'meta' => $this->inactivityMeta(),
             ]);
         }
 
         $rows = Enrollment::query()
             ->whereIn('formation_id', $formationIds)
-            ->with(['user:id,name,email,role', 'formation:id,title'])
+            ->with(['user:id,name,email,role,last_activity_at', 'formation:id,title'])
             ->orderByDesc('id')
             ->get()
             ->map(fn (Enrollment $enrollment): array => $this->serializeEnrollment($enrollment))
@@ -43,6 +44,7 @@ class TrainerEnrollmentController extends Controller
         return response()->json([
             'message' => 'Apprenants inscrits recuperes',
             'data' => $rows,
+            'meta' => $this->inactivityMeta(),
         ]);
     }
 
@@ -50,7 +52,7 @@ class TrainerEnrollmentController extends Controller
     {
         $user = $request->user();
 
-        if (!$user || (string) $user->role !== 'formateur') {
+        if (! $user || (string) $user->role !== 'formateur') {
             return response()->json([
                 'message' => 'Action reservee aux formateurs',
             ], 403);
@@ -64,7 +66,7 @@ class TrainerEnrollmentController extends Controller
 
         $rows = Enrollment::query()
             ->where('formation_id', (int) $formation->id)
-            ->with('user:id,name,email,role')
+            ->with('user:id,name,email,role,last_activity_at')
             ->orderByDesc('id')
             ->get()
             ->map(fn (Enrollment $enrollment): array => $this->serializeEnrollment($enrollment, $formation->title))
@@ -78,6 +80,7 @@ class TrainerEnrollmentController extends Controller
                 'count' => $rows->count(),
                 'learners' => $rows,
             ],
+            'meta' => $this->inactivityMeta(),
         ]);
     }
 
@@ -85,6 +88,8 @@ class TrainerEnrollmentController extends Controller
     {
         $user = $enrollment->user;
         $formation = $enrollment->formation;
+
+        $progress = $enrollment->progress !== null ? (int) $enrollment->progress : 0;
 
         return [
             'enrollment_id' => (int) $enrollment->id,
@@ -95,8 +100,26 @@ class TrainerEnrollmentController extends Controller
             'user_id' => (int) $enrollment->user_id,
             'user_name' => $user ? (string) ($user->name ?? '') : null,
             'user_email' => $user ? (string) ($user->email ?? '') : null,
-            'progress' => $enrollment->progress !== null ? (int) $enrollment->progress : 0,
+            'progress' => $progress,
             'enrolled_at' => (string) ($enrollment->enrolled_at ?? ''),
+
+            // Suivi de la desinscription automatique pour inactivite : le
+            // formateur voit venir le retrait avant qu'il ne soit applique.
+            'last_activity_at' => $user?->last_activity_at?->toDateTimeString(),
+            'inactive_days' => $enrollment->inactiveDays(),
+            'days_before_unenrollment' => $enrollment->daysBeforeUnenrollment(),
+        ];
+    }
+
+    /**
+     * Seuil de la regle, renvoye au client pour qu'il n'ait pas a le coder en dur.
+     *
+     * @return array{unenroll_after_days: int}
+     */
+    private function inactivityMeta(): array
+    {
+        return [
+            'unenroll_after_days' => Enrollment::unenrollThresholdDays(),
         ];
     }
 }

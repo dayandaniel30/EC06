@@ -30,9 +30,12 @@ class RatingController extends Controller
 
     public function summary(Request $request, Formation $formation): JsonResponse
     {
+        // `toBase()` renvoie un stdClass plutot qu'un modele Rating : un agregat
+        // n'est pas une ligne de la table et n'a pas a etre hydrate comme telle.
         $aggregate = Rating::query()
             ->where('formation_id', $formation->id)
             ->selectRaw('AVG(score) as avg_score, COUNT(*) as total')
+            ->toBase()
             ->first();
 
         $count = (int) ($aggregate->total ?? 0);
@@ -52,13 +55,13 @@ class RatingController extends Controller
     {
         $user = $request->user();
 
-        if (!$user || (string) $user->role !== 'apprenant') {
+        if (! $user || (string) $user->role !== 'apprenant') {
             return response()->json([
                 'message' => 'Seuls les apprenants peuvent noter une formation',
             ], 403);
         }
 
-        if (!$this->learnerIsEnrolled((int) $user->id, (int) $formation->id)) {
+        if (! $this->learnerIsEnrolled((int) $user->id, (int) $formation->id)) {
             return response()->json([
                 'message' => 'Vous devez etre inscrit a la formation pour la noter',
             ], 403);
@@ -110,7 +113,7 @@ class RatingController extends Controller
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Non authentifie'], 401);
         }
 
@@ -119,7 +122,7 @@ class RatingController extends Controller
             ->where('formation_id', (int) $formation->id)
             ->first();
 
-        if (!$rating) {
+        if (! $rating) {
             return response()->json([
                 'message' => 'Aucun avis a supprimer',
             ], 404);

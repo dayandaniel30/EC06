@@ -3,7 +3,7 @@
 return [
     'required' => 'Le champ :attribute est obligatoire.',
     'string' => 'Le champ :attribute doit etre une chaine de caracteres.',
-    'email' => "Le champ :attribute doit etre une adresse email valide.",
+    'email' => 'Le champ :attribute doit etre une adresse email valide.',
     'min' => [
         'string' => 'Le champ :attribute doit contenir au moins :min caracteres.',
     ],

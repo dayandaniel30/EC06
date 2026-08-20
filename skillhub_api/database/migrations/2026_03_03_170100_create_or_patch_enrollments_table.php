@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::hasTable('enrollments')) {
+        if (! Schema::hasTable('enrollments')) {
             Schema::create('enrollments', function (Blueprint $table): void {
                 $table->id();
                 $table->unsignedBigInteger('user_id')->index();
@@ -36,16 +36,16 @@ return new class extends Migration
         }
 
         Schema::table('enrollments', function (Blueprint $table): void {
-            if (!Schema::hasColumn('enrollments', 'user_id')) {
+            if (! Schema::hasColumn('enrollments', 'user_id')) {
                 $table->unsignedBigInteger('user_id')->index();
             }
-            if (!Schema::hasColumn('enrollments', 'formation_id')) {
+            if (! Schema::hasColumn('enrollments', 'formation_id')) {
                 $table->unsignedBigInteger('formation_id')->index();
             }
-            if (!Schema::hasColumn('enrollments', 'progress')) {
+            if (! Schema::hasColumn('enrollments', 'progress')) {
                 $table->integer('progress')->default(0);
             }
-            if (!Schema::hasColumn('enrollments', 'enrolled_at')) {
+            if (! Schema::hasColumn('enrollments', 'enrolled_at')) {
                 $table->timestamp('enrolled_at')->useCurrent();
             }
         });
@@ -53,7 +53,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (!Schema::hasTable('enrollments')) {
+        if (! Schema::hasTable('enrollments')) {
             return;
         }
 

@@ -31,7 +31,7 @@ class FormationApiTest extends TestCase
 
         $token = $user->createToken('phpunit')->plainTextToken;
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/formations', [
                 'title' => 'Formation Laravel',
                 'description' => 'Creation valide',

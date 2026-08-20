@@ -15,7 +15,7 @@ class FormationController extends Controller
     {
         static $columns = [];
 
-        if (!array_key_exists($column, $columns)) {
+        if (! array_key_exists($column, $columns)) {
             $columns[$column] = Schema::hasColumn('formations', $column);
         }
 
@@ -47,7 +47,7 @@ class FormationController extends Controller
     {
         $user = $request->user();
 
-        if (!$user || !in_array($user->role, ['formateur', 'admin'], true)) {
+        if (! $user || ! in_array($user->role, ['formateur', 'admin'], true)) {
             return response()->json(['message' => 'Action reservee aux formateurs/admins'], 403);
         }
 
@@ -70,7 +70,7 @@ class FormationController extends Controller
     {
         $user = $request->user();
 
-        if (!$user || (string) $user->role !== 'formateur') {
+        if (! $user || (string) $user->role !== 'formateur') {
             return response()->json(['message' => 'Action reservee aux formateurs'], 403);
         }
 
@@ -79,17 +79,17 @@ class FormationController extends Controller
         $search = trim((string) $request->input('q', ''));
         if ($search !== '') {
             $query->where(function ($builder) use ($search): void {
-                $builder->where('title', 'like', '%' . $search . '%')
-                    ->orWhere('level', 'like', '%' . $search . '%');
+                $builder->where('title', 'like', '%'.$search.'%')
+                    ->orWhere('level', 'like', '%'.$search.'%');
 
                 if ($this->hasFormationsColumn('description')) {
-                    $builder->orWhere('description', 'like', '%' . $search . '%');
+                    $builder->orWhere('description', 'like', '%'.$search.'%');
                 }
                 if ($this->hasFormationsColumn('short_description')) {
-                    $builder->orWhere('short_description', 'like', '%' . $search . '%');
+                    $builder->orWhere('short_description', 'like', '%'.$search.'%');
                 }
                 if ($this->hasFormationsColumn('full_description')) {
-                    $builder->orWhere('full_description', 'like', '%' . $search . '%');
+                    $builder->orWhere('full_description', 'like', '%'.$search.'%');
                 }
             });
         }
@@ -119,7 +119,7 @@ class FormationController extends Controller
     {
         $user = $request->user();
 
-        if (!$user || !in_array($user->role, ['formateur', 'admin'], true)) {
+        if (! $user || ! in_array($user->role, ['formateur', 'admin'], true)) {
             return response()->json(['message' => 'Action reservee aux formateurs/admins'], 403);
         }
 
@@ -174,11 +174,11 @@ class FormationController extends Controller
     {
         $user = $request->user();
 
-        if (!$user || !in_array($user->role, ['formateur', 'admin'], true)) {
+        if (! $user || ! in_array($user->role, ['formateur', 'admin'], true)) {
             return response()->json(['message' => 'Action reservee aux formateurs/admins'], 403);
         }
 
-        if ((string) $user->role !== 'admin' && !$this->userOwnsFormation($user, $formation)) {
+        if ((string) $user->role !== 'admin' && ! $this->userOwnsFormation($user, $formation)) {
             return response()->json(['message' => 'Vous ne pouvez modifier que vos formations'], 403);
         }
 
@@ -238,11 +238,11 @@ class FormationController extends Controller
     {
         $user = $request->user();
 
-        if (!$user || !in_array($user->role, ['formateur', 'admin'], true)) {
+        if (! $user || ! in_array($user->role, ['formateur', 'admin'], true)) {
             return response()->json(['message' => 'Action reservee aux formateurs/admins'], 403);
         }
 
-        if ((string) $user->role !== 'admin' && !$this->userOwnsFormation($user, $formation)) {
+        if ((string) $user->role !== 'admin' && ! $this->userOwnsFormation($user, $formation)) {
             return response()->json(['message' => 'Vous ne pouvez supprimer que vos formations'], 403);
         }
 

@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('users') && !Schema::hasColumn('users', 'role')) {
+        if (Schema::hasTable('users') && ! Schema::hasColumn('users', 'role')) {
             Schema::table('users', function (Blueprint $table): void {
                 $table->string('role')->default('apprenant')->after('password');
             });

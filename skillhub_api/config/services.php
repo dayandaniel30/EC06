@@ -35,9 +35,19 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Microservice SSO (Spring Boot)
+    |--------------------------------------------------------------------------
+    |
+    | `base_url` pointe sur le service `spring-sso` du reseau Docker prive.
+    | Aucun secret n'est requis cote Laravel : la validation des JWT est
+    | deleguee a `GET /auth/validate`, Laravel ne verifie pas de signature.
+    |
+    */
+
     'sso' => [
-        'base_url' => env('SSO_BASE_URL', 'http://localhost:8081'),
-        'jwt_secret' => env('SSO_JWT_SECRET', 'Y2hhbmdlLW1lLXNraWxsaHViLXNzby1tYXN0ZXIta2V5LTIwMjYtMzJieXRlcy1taW4='),
+        'base_url' => env('SSO_BASE_URL', 'http://localhost:8080'),
         'jwt_issuer' => env('SSO_JWT_ISSUER', 'skillhub-sso'),
         'jwt_audience' => env('SSO_JWT_AUDIENCE', 'skillhub-laravel'),
         'timeout' => (int) env('SSO_HTTP_TIMEOUT', 5),

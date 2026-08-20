@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::hasTable('formations')) {
+        if (! Schema::hasTable('formations')) {
             Schema::create('formations', function (Blueprint $table): void {
                 $table->id();
                 $table->string('title');
@@ -32,25 +32,25 @@ return new class extends Migration
         }
 
         Schema::table('formations', function (Blueprint $table): void {
-            if (!Schema::hasColumn('formations', 'title')) {
+            if (! Schema::hasColumn('formations', 'title')) {
                 $table->string('title')->nullable();
             }
-            if (!Schema::hasColumn('formations', 'description')) {
+            if (! Schema::hasColumn('formations', 'description')) {
                 $table->text('description')->nullable();
             }
-            if (!Schema::hasColumn('formations', 'duration')) {
+            if (! Schema::hasColumn('formations', 'duration')) {
                 $table->string('duration')->nullable();
             }
-            if (!Schema::hasColumn('formations', 'level')) {
+            if (! Schema::hasColumn('formations', 'level')) {
                 $table->string('level')->nullable();
             }
-            if (!Schema::hasColumn('formations', 'user_id')) {
+            if (! Schema::hasColumn('formations', 'user_id')) {
                 $table->unsignedBigInteger('user_id')->nullable()->index();
             }
-            if (!Schema::hasColumn('formations', 'created_at')) {
+            if (! Schema::hasColumn('formations', 'created_at')) {
                 $table->timestamp('created_at')->nullable();
             }
-            if (!Schema::hasColumn('formations', 'updated_at')) {
+            if (! Schema::hasColumn('formations', 'updated_at')) {
                 $table->timestamp('updated_at')->nullable();
             }
         });
@@ -58,7 +58,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (!Schema::hasTable('formations')) {
+        if (! Schema::hasTable('formations')) {
             return;
         }
 

@@ -1,0 +1,38 @@
+# syntax=docker/dockerfile:1.7
+# =============================================================================
+# Image du tableau de bord formateur (React + Vite)
+# =============================================================================
+# Comme les deux autres Dockerfile, le contexte de build est la RACINE du depot
+# afin de partager le meme .dockerignore.
+#
+#   docker build -f Dockerfile.frontend -t skillhub-frontend .
+#
+# Le dashboard a migre de Create React App vers Vite : react-scripts 3.3.0
+# reposait sur webpack 4, dont le hachage md4 est refuse par l'OpenSSL 3 livre
+# a partir de Node 17, ce qui figeait le projet sur un Node en fin de vie.
+# Vite 5 fonctionne sur les versions maintenues de Node.
+# =============================================================================
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Les dependances sont installees avant la copie du code : editer un composant
+# ne declenche pas une reinstallation complete de node_modules.
+COPY ["Tableau de bord - Formateur/package.json", "Tableau de bord - Formateur/package-lock.json", "./"]
+
+RUN npm ci --no-audit --no-fund
+
+COPY ["Tableau de bord - Formateur/", "./"]
+
+# host 0.0.0.0 : sans cela le serveur de developpement n'ecoute que la boucle
+# locale du conteneur et le port publie reste injoignable depuis l'hote.
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD wget -q --spider http://127.0.0.1:3000/ || exit 1
+
+# Le conteneur ne tourne pas en root : l'image node fournit deja l'utilisateur `node`.
+RUN chown -R node:node /app
+USER node
+
+CMD ["npx", "vite", "--host", "0.0.0.0", "--port", "3000"]

@@ -1,0 +1,7 @@
+# Use this workspace to collaborate
+workspace:
+  id: af9b246e-3b3f-4dc3-8f00-f6dd3de04b3a
+
+localResources:
+  specs:
+    - ../skillhub_api/openapi.yaml

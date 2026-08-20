@@ -34,7 +34,7 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
-            'role' => ['nullable', 'string', 'in:formateur'],
+            'role' => ['nullable', 'string', 'in:formateur,apprenant'],
         ]);
 
         if ($validator->fails()) {
@@ -78,7 +78,7 @@ class AuthController extends Controller
 
         $user = User::query()->where('email', $request->string('email')->toString())->first();
 
-        if (!$user || !Hash::check((string) $request->input('password'), (string) $user->password)) {
+        if (! $user || ! Hash::check((string) $request->input('password'), (string) $user->password)) {
             return response()->json(['message' => 'Identifiants invalides'], 401);
         }
 
@@ -100,11 +100,10 @@ class AuthController extends Controller
     {
         /** @var User|null $user */
         $user = $request->user();
-        if ($user && method_exists($user, 'currentAccessToken')) {
-            $currentToken = $user->currentAccessToken();
-            if ($currentToken) {
-                $currentToken->delete();
-            }
+        $currentToken = $user?->currentAccessToken();
+
+        if ($currentToken instanceof \Laravel\Sanctum\PersonalAccessToken) {
+            $currentToken->delete();
         }
 
         return response()->json(['message' => 'Deconnexion reussie']);
@@ -114,7 +113,7 @@ class AuthController extends Controller
     {
         /** @var User|null $user */
         $user = $request->user();
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Utilisateur non connecte'], 401);
         }
 

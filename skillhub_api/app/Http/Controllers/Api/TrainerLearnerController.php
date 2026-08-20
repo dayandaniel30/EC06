@@ -16,6 +16,7 @@ class TrainerLearnerController extends Controller
     private function canManage(Request $request): bool
     {
         $user = $request->user();
+
         return $user && in_array((string) $user->role, ['formateur', 'admin'], true);
     }
 
@@ -26,13 +27,13 @@ class TrainerLearnerController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        if (!$this->canManage($request)) {
+        if (! $this->canManage($request)) {
             return response()->json(['message' => 'Action reservee aux formateurs/admins'], 403);
         }
 
         $nameColumn = $this->nameColumn();
         $rows = DB::table('users')
-            ->select(['id', $nameColumn . ' as name', 'email', 'role'])
+            ->select(['id', $nameColumn.' as name', 'email', 'role'])
             ->where('role', 'apprenant')
             ->orderByDesc('id')
             ->get();
@@ -45,7 +46,7 @@ class TrainerLearnerController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        if (!$this->canManage($request)) {
+        if (! $this->canManage($request)) {
             return response()->json(['message' => 'Action reservee aux formateurs/admins'], 403);
         }
 
@@ -63,7 +64,7 @@ class TrainerLearnerController extends Controller
         }
 
         $nameColumn = $this->nameColumn();
-        $user = new User();
+        $user = new User;
         $user->{$nameColumn} = $request->string('name')->toString();
         $user->email = $request->string('email')->toString();
         $user->password = Hash::make($request->string('password')->toString());
@@ -83,7 +84,7 @@ class TrainerLearnerController extends Controller
 
     public function update(Request $request, User $user): JsonResponse
     {
-        if (!$this->canManage($request)) {
+        if (! $this->canManage($request)) {
             return response()->json(['message' => 'Action reservee aux formateurs/admins'], 403);
         }
 
@@ -93,7 +94,7 @@ class TrainerLearnerController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'email' => ['sometimes', 'required', 'email', 'max:255', 'unique:users,email,' . (int) $user->id],
+            'email' => ['sometimes', 'required', 'email', 'max:255', 'unique:users,email,'.(int) $user->id],
             'password' => ['sometimes', 'nullable', 'string', 'min:6'],
         ]);
 
@@ -133,7 +134,7 @@ class TrainerLearnerController extends Controller
 
     public function destroy(Request $request, User $user): JsonResponse
     {
-        if (!$this->canManage($request)) {
+        if (! $this->canManage($request)) {
             return response()->json(['message' => 'Action reservee aux formateurs/admins'], 403);
         }
 
