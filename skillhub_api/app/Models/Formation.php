@@ -41,6 +41,10 @@ class Formation extends Model
 
     protected $fillable = [
         'title',
+        // `description` est la colonne reellement presente dans la table ; son
+        // absence ici faisait silencieusement perdre toute description passee a
+        // create() ou update().
+        'description',
         'short_description',
         'full_description',
         'duration',

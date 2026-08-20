@@ -913,3 +913,13 @@ body { background: var(--paper); color: var(--ink); font-family: "Avenir Next", 
 .activity-chip.done, .activity-chip.unknown { color: #6b7a7b; background: #f0f4f3; }
 .activity-chip.warn { color: #8b5b1e; background: #fff5e5; }
 .activity-chip.danger { color: #a33c22; background: #fbe7e0; }
+
+/* Catalogue de l'espace apprenant */
+.catalogue-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 15px; }
+.catalogue-card { display: flex; flex-direction: column; gap: 9px; padding: 17px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.catalogue-card h3 { margin: 0; color: var(--ink); font-size: 14px; letter-spacing: -0.01em; }
+.catalogue-card > p { flex: 1; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.catalogue-card .solid-btn { align-self: flex-start; padding: 8px 14px; font-size: 12px; }
+.catalogue-meta { display: flex; align-items: center; gap: 9px; }
+.catalogue-meta small { color: #9aa9aa; font-size: 10px; }
+.catalogue-card .activity-chip { align-self: flex-start; }

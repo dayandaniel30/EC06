@@ -4,6 +4,7 @@ import axios from "axios";
 import { apiRequest, getApiBaseUrl } from "../services/api";
 import Auth from "./Auth";
 import HomePage from "./HomePage";
+import LearnerSpace from "./LearnerSpace";
 
 const formationLevelOptions = ["beginner", "intermediate", "advanced"];
 
@@ -373,16 +374,10 @@ function App() {
     return <HomePage onRequestLogin={() => setShowAuth(true)} />;
   }
 
+  // Un apprenant disposait jusqu'ici d'un ecran sans issue, alors que l'API
+  // exposait deja tout son parcours (catalogue, inscription, progression).
   if (!user.isTrainer) {
-    return (
-      <div className="page-shell">
-        <section className="card auth-card">
-          <h2>Acces formateur uniquement</h2>
-          <p className="question">Connectez-vous avec un compte formateur pour gerer vos formations.</p>
-          <button className="solid-btn" onClick={handleLogout} type="button">Se deconnecter</button>
-        </section>
-      </div>
-    );
+    return <LearnerSpace onLogout={handleLogout} user={user} />;
   }
 
   const totalRevenue = trainerFormations.reduce(function (total, formation) {

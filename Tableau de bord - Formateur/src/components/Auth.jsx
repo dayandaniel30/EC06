@@ -10,7 +10,7 @@ function Auth({ onLogin }) {
     name: "",
     email: "",
     password: "",
-    role: "formateur"
+    role: "apprenant"
   });
   const [resetForm, setResetForm] = useState({
     token: "",
@@ -237,6 +237,7 @@ function Auth({ onLogin }) {
           value={authForm.role}
         >
           <option value="formateur">Formateur</option>
+          <option value="apprenant">Apprenant</option>
         </select>
         <button className="solid-btn" type="submit">
           {authLoading ? "Traitement..." : "S'inscrire"}

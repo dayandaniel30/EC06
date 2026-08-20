@@ -2,14 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Console\Commands\DesinscriptionInactive;
 use App\Http\Controllers\Controller;
 use App\Models\Enrollment;
 use App\Models\Formation;
-use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 
 class TrainerEnrollmentController extends Controller
 {
@@ -93,8 +90,6 @@ class TrainerEnrollmentController extends Controller
         $formation = $enrollment->formation;
 
         $progress = $enrollment->progress !== null ? (int) $enrollment->progress : 0;
-        $lastActivity = $this->resolveLastActivity($enrollment);
-        $inactiveDays = $lastActivity?->diffInDays(Carbon::now());
 
         return [
             'enrollment_id' => (int) $enrollment->id,
@@ -111,50 +106,9 @@ class TrainerEnrollmentController extends Controller
             // Suivi de la desinscription automatique pour inactivite : le
             // formateur voit venir le retrait avant qu'il ne soit applique.
             'last_activity_at' => $user?->last_activity_at?->toDateTimeString(),
-            'inactive_days' => $inactiveDays !== null ? (int) $inactiveDays : null,
-            'days_before_unenrollment' => $this->daysBeforeUnenrollment($progress, $inactiveDays),
+            'inactive_days' => $enrollment->inactiveDays(),
+            'days_before_unenrollment' => $enrollment->daysBeforeUnenrollment(),
         ];
-    }
-
-    /**
-     * Nombre de jours restants avant la desinscription automatique.
-     *
-     * `null` quand la regle ne s'applique pas : formation terminee (la commande
-     * ne touche jamais aux inscriptions a 100 %) ou inactivite indeterminable.
-     */
-    private function daysBeforeUnenrollment(int $progress, int|float|null $inactiveDays): ?int
-    {
-        if ($progress >= 100 || $inactiveDays === null) {
-            return null;
-        }
-
-        $threshold = (int) config(
-            'skillhub.inactivity.unenroll_after_days',
-            DesinscriptionInactive::DEFAULT_INACTIVITY_DAYS
-        );
-
-        return max(0, $threshold - (int) $inactiveDays);
-    }
-
-    /**
-     * Date de reference servant a mesurer l'inactivite de l'apprenant.
-     *
-     * Meme regle que la commande `app:desinscription-inactive` : sans activite
-     * enregistree, la date d'inscription sert de repere.
-     */
-    private function resolveLastActivity(Enrollment $enrollment): ?CarbonInterface
-    {
-        $lastActivityAt = $enrollment->user?->last_activity_at;
-
-        if ($lastActivityAt !== null) {
-            return Carbon::parse($lastActivityAt);
-        }
-
-        if (! empty($enrollment->enrolled_at)) {
-            return Carbon::parse($enrollment->enrolled_at);
-        }
-
-        return null;
     }
 
     /**
@@ -165,10 +119,7 @@ class TrainerEnrollmentController extends Controller
     private function inactivityMeta(): array
     {
         return [
-            'unenroll_after_days' => (int) config(
-                'skillhub.inactivity.unenroll_after_days',
-                DesinscriptionInactive::DEFAULT_INACTIVITY_DAYS
-            ),
+            'unenroll_after_days' => Enrollment::unenrollThresholdDays(),
         ];
     }
 }

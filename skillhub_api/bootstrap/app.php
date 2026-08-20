@@ -12,7 +12,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->statefulApi();
+        // Pas de statefulApi() : cette API est purement porteuse de jetons
+        // (jetons personnels Sanctum et JWT du SSO Spring Boot), aucun
+        // controleur n'ouvre de session. Or `sanctum.stateful` liste
+        // `localhost:3000` par defaut : le middleware aurait bascule les appels
+        // du dashboard en mode session, ou chaque POST est refuse par la
+        // protection CSRF (419 « CSRF token mismatch ») faute de cookie XSRF.
         $middleware->alias([
             // Delegue l'authentification au microservice Spring Boot SSO.
             'sso' => \App\Http\Middleware\SpringSsoAuthenticate::class,

@@ -19,16 +19,28 @@ class LearnerEnrollmentController extends Controller
             return response()->json(['message' => 'Utilisateur non connecte'], 401);
         }
 
+        // Inscriptions existantes de l'apprenant : le catalogue indique ce a quoi
+        // il est deja inscrit, plutot que de laisser l'API repondre 409 apres coup.
+        $enrolledFormationIds = Enrollment::query()
+            ->where('user_id', (int) $user->id)
+            ->pluck('formation_id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
         $rows = Formation::query()
             ->orderByDesc('id')
             ->get()
-            ->map(function (Formation $formation): array {
+            ->map(function (Formation $formation) use ($enrolledFormationIds): array {
                 return [
                     'id' => (int) $formation->id,
                     'title' => (string) ($formation->title ?? 'Formation'),
-                    'description' => (string) ($formation->short_description ?? $formation->full_description ?? ''),
+                    // `description` est la colonne reellement presente en base :
+                    // short_description / full_description n'ont jamais existe et
+                    // renvoyaient donc systematiquement une chaine vide.
+                    'description' => (string) ($formation->description ?? ''),
                     'level' => (string) ($formation->level ?? 'Niveau non precise'),
                     'duration' => (string) ($formation->duration ?? 'Duree non precise'),
+                    'is_enrolled' => in_array((int) $formation->id, $enrolledFormationIds, true),
                 ];
             })
             ->values();
@@ -36,6 +48,7 @@ class LearnerEnrollmentController extends Controller
         return response()->json([
             'message' => 'Formations disponibles recuperees',
             'data' => $rows,
+            'meta' => self::learnerMeta(),
         ]);
     }
 
@@ -52,7 +65,12 @@ class LearnerEnrollmentController extends Controller
             ->where('user_id', (int) $user->id)
             ->orderByDesc('id')
             ->get()
-            ->map(function (Enrollment $enrollment): array {
+            ->map(function (Enrollment $enrollment) use ($user): array {
+                // Toutes ces inscriptions appartiennent a l'utilisateur courant :
+                // rattacher la relation evite une requete par ligne dans
+                // lastActivityAt(), qui lit users.last_activity_at.
+                $enrollment->setRelation('user', $user);
+
                 return [
                     'id' => (int) $enrollment->id,
                     'user_id' => (int) $enrollment->user_id,
@@ -62,6 +80,10 @@ class LearnerEnrollmentController extends Controller
                     'title' => (string) ($enrollment->formation->title ?? 'Formation'),
                     'level' => (string) ($enrollment->formation->level ?? 'Niveau non precise'),
                     'duration' => (string) ($enrollment->formation->duration ?? 'Duree non precise'),
+
+                    // L'apprenant voit venir sa propre desinscription automatique.
+                    'inactive_days' => $enrollment->inactiveDays(),
+                    'days_before_unenrollment' => $enrollment->daysBeforeUnenrollment(),
                 ];
             })
             ->values();
@@ -69,6 +91,7 @@ class LearnerEnrollmentController extends Controller
         return response()->json([
             'message' => 'Inscriptions recuperees',
             'data' => $rows,
+            'meta' => self::learnerMeta(),
         ]);
     }
 
@@ -100,9 +123,11 @@ class LearnerEnrollmentController extends Controller
             })
             ->count();
 
-        if ($activeEnrollmentsCount >= 5) {
+        $maxActive = self::maxActiveEnrollments();
+
+        if ($activeEnrollmentsCount >= $maxActive) {
             return response()->json([
-                'message' => 'Vous ne pouvez pas etre inscrit a plus de 5 formations simultanement',
+                'message' => "Vous ne pouvez pas etre inscrit a plus de {$maxActive} formations simultanement",
             ], 400);
         }
 
@@ -160,6 +185,27 @@ class LearnerEnrollmentController extends Controller
                 'progress' => (int) ($enrollment->progress ?? 0),
             ],
         ]);
+    }
+
+    /**
+     * Nombre maximum de formations suivies simultanement.
+     */
+    private static function maxActiveEnrollments(): int
+    {
+        return (int) config('skillhub.enrollment.max_active', 5);
+    }
+
+    /**
+     * Regles renvoyees au client pour qu'il n'ait pas a les coder en dur.
+     *
+     * @return array{max_active: int, unenroll_after_days: int}
+     */
+    private static function learnerMeta(): array
+    {
+        return [
+            'max_active' => self::maxActiveEnrollments(),
+            'unenroll_after_days' => Enrollment::unenrollThresholdDays(),
+        ];
     }
 
     public function destroy(Request $request, Enrollment $enrollment): JsonResponse

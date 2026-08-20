@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\Enrollment;
-use Carbon\CarbonInterface;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
@@ -32,7 +31,7 @@ class DesinscriptionInactive extends Command
     public function handle(): int
     {
         $days = $this->option('days') === null
-            ? (int) config('skillhub.inactivity.unenroll_after_days', self::DEFAULT_INACTIVITY_DAYS)
+            ? Enrollment::unenrollThresholdDays()
             : (int) $this->option('days');
 
         if ($days < 1) {
@@ -53,7 +52,7 @@ class DesinscriptionInactive extends Command
             })
             ->chunkById(200, function (Collection $enrollments) use ($threshold, $dryRun, &$rows): void {
                 foreach ($enrollments as $enrollment) {
-                    $lastActivity = $this->resolveLastActivity($enrollment);
+                    $lastActivity = $enrollment->lastActivityAt();
 
                     if ($lastActivity === null || $lastActivity->greaterThanOrEqualTo($threshold)) {
                         continue;
@@ -120,21 +119,4 @@ class DesinscriptionInactive extends Command
         return "{$count} desinscription(s) effectuee(s) pour inactivite de plus de {$days} jours.";
     }
 
-    /**
-     * Date de reference servant a mesurer l'inactivite de l'apprenant.
-     */
-    private function resolveLastActivity(Enrollment $enrollment): ?CarbonInterface
-    {
-        $lastActivityAt = $enrollment->user?->last_activity_at;
-
-        if ($lastActivityAt !== null) {
-            return Carbon::parse($lastActivityAt);
-        }
-
-        if (! empty($enrollment->enrolled_at)) {
-            return Carbon::parse($enrollment->enrolled_at);
-        }
-
-        return null;
-    }
 }

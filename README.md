@@ -318,6 +318,11 @@ Le seuil est lu dans `config/skillhub.php`
 (`skillhub.inactivity.unenroll_after_days`) et non codé en dur : la commande, le
 tableau de bord formateur et les tests s'appuient tous dessus.
 
+**Restitution côté apprenant.** `GET /api/learner/enrollments` renvoie pour
+chaque inscription `inactive_days` et `days_before_unenrollment`, plus
+`meta.max_active` et `meta.unenroll_after_days`. L'espace apprenant affiche le
+compte à rebours avant retrait et alerte dès qu'il passe sous 7 jours.
+
 **Restitution côté formateur.** `GET /api/formateur/enrollments` renvoie, pour
 chaque inscription, `last_activity_at`, `inactive_days` et
 `days_before_unenrollment`, plus un bloc `meta.unenroll_after_days`. Le champ
@@ -325,6 +330,47 @@ chaque inscription, `last_activity_at`, `inactive_days` et
 formation terminée (progression à 100) ou inactivité indéterminable. Le
 dashboard React s'en sert pour signaler les apprenants menacés **avant** que la
 désinscription ne soit appliquée.
+
+---
+
+### Espace apprenant
+
+Le parcours apprenant existait côté API mais n'avait aucune interface : le
+dashboard renvoyait tout non-formateur vers un écran sans issue, et trois verrous
+empêchaient même d'obtenir un compte apprenant.
+
+| Verrou | Correction |
+|--------|------------|
+| `AuthController::register` validait `in:formateur` | ouvert à `in:formateur,apprenant` |
+| Le `<select>` de rôle n'offrait que « Formateur » | option « Apprenant » ajoutée |
+| `App.jsx` affichait « Accès formateur uniquement » | remplacé par le composant `LearnerSpace` |
+
+L'espace apprenant expose le catalogue, l'inscription et la désinscription, la
+progression, et le compte à rebours avant retrait automatique. Il s'appuie sur
+les routes `/api/learner/*` qui existaient déjà.
+
+Deux bugs préexistants ont été corrigés au passage :
+
+- `Formation::$fillable` déclarait `short_description` / `full_description`,
+  colonnes absentes de la table. La colonne réelle, `description`, n'étant pas
+  *mass-assignable*, **toute description passée à `create()` était silencieusement
+  perdue** et le catalogue s'affichait vide.
+- La limite de 5 formations simultanées était codée en dur dans le contrôleur
+  alors que `skillhub.enrollment.max_active` existait ; elle est désormais lue
+  depuis la configuration et annoncée au client via `meta.max_active`.
+
+### Authentification : pas de session, pas de CSRF
+
+`bootstrap/app.php` n'appelle **pas** `statefulApi()`. L'API est purement
+porteuse de jetons — jetons personnels Sanctum et JWT du SSO — et aucun
+contrôleur n'ouvre de session.
+
+C'est délibéré : `sanctum.stateful` liste `localhost:3000` par défaut. Avec
+`statefulApi()`, les appels du dashboard basculaient en mode session, où la
+protection CSRF refuse tout `POST` dépourvu de cookie `XSRF-TOKEN` — d'où un
+`419 CSRF token mismatch` à chaque inscription ou connexion depuis le
+navigateur. Le test `test_registering_from_the_dashboard_origin_is_not_blocked_by_csrf`
+verrouille ce comportement.
 
 ---
 
@@ -696,6 +742,10 @@ EC06_MU202616/
 │   ├── checkstyle.xml
 │   └── pom.xml
 │
-├── Tableau de bord - Formateur/     # Dashboard React (conteneur skillhub-frontend)
+├── Tableau de bord - Formateur/     # Dashboard React + Vite (skillhub-frontend)
+│   └── src/components/
+│       ├── App.jsx                  # Espace formateur + suivi d'inactivite
+│       ├── LearnerSpace.jsx         # Espace apprenant : catalogue, inscriptions
+│       └── Auth.jsx                 # Connexion / creation de compte
 └── Database/skillhubsql.sql         # Dump historique MySQL
 ```
