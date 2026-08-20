@@ -9,7 +9,7 @@
 #   laravel-db         MySQL 8         donnees metier          -> laravel-db:3306
 #   skillhub-laravel   Laravel 12      API metier              -> skillhub-laravel:8000
 #   skillhub-scheduler Laravel 12      taches planifiees       -> (aucun port)
-#   skillhub-frontend  React 16        tableau de bord         -> localhost:3000
+#   skillhub-frontend  React 18 / Vite  tableau de bord         -> localhost:3000
 #
 # Aucune des deux bases n'est accessible depuis l'autre microservice : la seule
 # communication autorisee entre les services est l'API REST du SSO.
@@ -220,8 +220,7 @@ services:
   # ===========================================================================
   # Tableau de bord formateur (React)
   # ===========================================================================
-  # Servi par le serveur de developpement de react-scripts : c'est la seule
-  # facon de faire tourner ce dashboard sans imposer Node 16 sur la machine.
+  # Servi par le serveur de developpement de Vite.
   # ===========================================================================
   skillhub-frontend:
     build:
@@ -236,7 +235,7 @@ services:
     environment:
       # Adresse vue par le NAVIGATEUR, et non par le conteneur : le dashboard
       # s'execute chez le client, ou le nom `skillhub-laravel` n'existe pas.
-      REACT_APP_API_BASE_URL: ${FRONTEND_API_BASE_URL:-http://localhost:8000}
+      VITE_API_BASE_URL: ${FRONTEND_API_BASE_URL:-http://localhost:8000}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     networks:
