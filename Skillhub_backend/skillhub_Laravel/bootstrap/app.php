@@ -14,7 +14,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'sso' => \App\Http\Middleware\SsoAuthenticate::class,
+            'activity' => \App\Http\Middleware\TrackLastActivity::class,
         ]);
+
+        // Trace la derniere activite sur chaque appel API authentifie.
+        $middleware->appendToGroup('api', \App\Http\Middleware\TrackLastActivity::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
