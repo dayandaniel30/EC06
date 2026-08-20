@@ -44,7 +44,7 @@ class RatingApiTest extends TestCase
     {
         $formation = $this->makeFormation();
 
-        $response = $this->postJson('/api/formations/' . $formation->id . '/ratings', [
+        $response = $this->postJson('/api/formations/'.$formation->id.'/ratings', [
             'score' => 4,
             'comment' => 'Sympathique',
         ]);
@@ -58,8 +58,8 @@ class RatingApiTest extends TestCase
         $token = $formateur->createToken('phpunit')->plainTextToken;
         $formation = $this->makeFormation();
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->postJson('/api/formations/' . $formation->id . '/ratings', [
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/formations/'.$formation->id.'/ratings', [
                 'score' => 5,
             ]);
 
@@ -74,8 +74,8 @@ class RatingApiTest extends TestCase
         $token = $learner->createToken('phpunit')->plainTextToken;
         $formation = $this->makeFormation();
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->postJson('/api/formations/' . $formation->id . '/ratings', [
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/formations/'.$formation->id.'/ratings', [
                 'score' => 4,
                 'comment' => 'Pas inscrit',
             ]);
@@ -94,8 +94,8 @@ class RatingApiTest extends TestCase
         $formation = $this->makeFormation();
         $this->enroll($learner, $formation);
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->postJson('/api/formations/' . $formation->id . '/ratings', [
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/formations/'.$formation->id.'/ratings', [
                 'score' => 5,
                 'comment' => 'Excellente formation',
             ]);
@@ -121,20 +121,20 @@ class RatingApiTest extends TestCase
         $formation = $this->makeFormation();
         $this->enroll($learner, $formation);
 
-        $tooHigh = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->postJson('/api/formations/' . $formation->id . '/ratings', [
+        $tooHigh = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/formations/'.$formation->id.'/ratings', [
                 'score' => 6,
             ]);
         $tooHigh->assertStatus(422)->assertJsonPath('errors.score.0', 'The score field must be between 1 and 5.');
 
-        $tooLow = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->postJson('/api/formations/' . $formation->id . '/ratings', [
+        $tooLow = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/formations/'.$formation->id.'/ratings', [
                 'score' => 0,
             ]);
         $tooLow->assertStatus(422);
 
-        $missing = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->postJson('/api/formations/' . $formation->id . '/ratings', []);
+        $missing = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/formations/'.$formation->id.'/ratings', []);
         $missing->assertStatus(422)->assertJsonPath('errors.score.0', 'The score field is required.');
 
         $this->assertSame(0, Rating::count());
@@ -147,15 +147,15 @@ class RatingApiTest extends TestCase
         $formation = $this->makeFormation();
         $this->enroll($learner, $formation);
 
-        $first = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->postJson('/api/formations/' . $formation->id . '/ratings', [
+        $first = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/formations/'.$formation->id.'/ratings', [
                 'score' => 3,
                 'comment' => 'Pas mal',
             ]);
         $first->assertStatus(201);
 
-        $second = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->postJson('/api/formations/' . $formation->id . '/ratings', [
+        $second = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/formations/'.$formation->id.'/ratings', [
                 'score' => 5,
                 'comment' => 'Finalement super',
             ]);
@@ -197,14 +197,14 @@ class RatingApiTest extends TestCase
         $reader = User::factory()->create(['role' => 'apprenant']);
         $token = $reader->createToken('phpunit')->plainTextToken;
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->getJson('/api/formations/' . $formation->id . '/ratings/summary');
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/formations/'.$formation->id.'/ratings/summary');
 
         $response
             ->assertStatus(200)
             ->assertJsonPath('data.formation_id', $formation->id)
             ->assertJsonPath('data.count', 3)
-            ->assertJsonPath('data.average', 4.0);
+            ->assertJsonPath('data.average', fn ($average) => (float) $average === 4.0);
     }
 
     public function test_summary_with_no_ratings_returns_zero(): void
@@ -213,13 +213,13 @@ class RatingApiTest extends TestCase
         $reader = User::factory()->create(['role' => 'apprenant']);
         $token = $reader->createToken('phpunit')->plainTextToken;
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->getJson('/api/formations/' . $formation->id . '/ratings/summary');
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/formations/'.$formation->id.'/ratings/summary');
 
         $response
             ->assertStatus(200)
             ->assertJsonPath('data.count', 0)
-            ->assertJsonPath('data.average', 0.0);
+            ->assertJsonPath('data.average', fn ($average) => (float) $average === 0.0);
     }
 
     public function test_index_returns_list_of_ratings(): void
@@ -238,8 +238,8 @@ class RatingApiTest extends TestCase
         $reader = User::factory()->create(['role' => 'apprenant']);
         $token = $reader->createToken('phpunit')->plainTextToken;
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->getJson('/api/formations/' . $formation->id . '/ratings');
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/formations/'.$formation->id.'/ratings');
 
         $response
             ->assertStatus(200)
@@ -261,8 +261,8 @@ class RatingApiTest extends TestCase
             'score' => 2,
         ]);
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->deleteJson('/api/formations/' . $formation->id . '/ratings');
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->deleteJson('/api/formations/'.$formation->id.'/ratings');
 
         $response
             ->assertStatus(200)
@@ -277,8 +277,8 @@ class RatingApiTest extends TestCase
         $token = $learner->createToken('phpunit')->plainTextToken;
         $formation = $this->makeFormation();
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->deleteJson('/api/formations/' . $formation->id . '/ratings');
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->deleteJson('/api/formations/'.$formation->id.'/ratings');
 
         $response->assertStatus(404);
     }

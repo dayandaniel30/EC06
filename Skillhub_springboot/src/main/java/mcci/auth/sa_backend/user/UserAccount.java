@@ -61,13 +61,29 @@ public class UserAccount {
         this.role = role;
     }
 
-    public Long getId() { return id; }
-    public String getUsername() { return username; }
-    public String getPasswordHash() { return passwordHash; }
-    public String getRole() { return role; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getPasswordResetToken() { return passwordResetToken; }
-    public Instant getPasswordResetExpiresAt() { return passwordResetExpiresAt; }
+    public String getUsername() {
+        return username;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public String getPasswordResetToken() {
+        return passwordResetToken;
+    }
+
+    public Instant getPasswordResetExpiresAt() {
+        return passwordResetExpiresAt;
+    }
 
     /**
      * Met a jour le hash du mot de passe.

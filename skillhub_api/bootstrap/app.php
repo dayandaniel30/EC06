@@ -14,11 +14,13 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
         $middleware->alias([
-            'sso' => \App\Http\Middleware\SsoAuthenticate::class,
+            // Delegue l'authentification au microservice Spring Boot SSO.
+            'sso' => \App\Http\Middleware\SpringSsoAuthenticate::class,
             'activity' => \App\Http\Middleware\TrackLastActivity::class,
         ]);
 
-        // Trace la derniere activite sur chaque appel API authentifie.
+        // Trace la derniere activite sur chaque appel API authentifie,
+        // que la session vienne de Sanctum ou du SSO Spring Boot.
         $middleware->appendToGroup('api', \App\Http\Middleware\TrackLastActivity::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

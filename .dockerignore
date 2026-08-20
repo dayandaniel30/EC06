@@ -1,0 +1,55 @@
+# =============================================================================
+# Contexte de build Docker
+# =============================================================================
+# Les deux Dockerfile utilisent la racine du depot comme contexte. Sans ce
+# fichier, chaque build enverrait au demon Docker le vendor PHP, le target Maven
+# et le node_modules du dashboard React, soit plusieurs centaines de Mo inutiles.
+# Le code source du dashboard, lui, est conserve : il alimente Dockerfile.frontend.
+# =============================================================================
+
+# --- Controle de version et outillage ---
+.git
+.github
+.gitignore
+.dockerignore
+*.md
+!skillhub_api/README.md
+
+# --- Artefacts de build ---
+**/vendor/
+**/node_modules/
+**/target/
+**/build/
+**/dist/
+
+# --- Composants non embarques dans les images ---
+Database/
+
+# --- Secrets et configuration locale ---
+**/.env
+**/.env.*
+!**/.env.example
+
+# Le dashboard React lit l'URL publique de l'API dans .env.development. Ce
+# fichier ne contient aucun secret et doit suivre le code dans l'image.
+!Tableau de bord - Formateur/.env.development
+
+# --- Etat runtime Laravel (regenere au demarrage) ---
+skillhub_api/storage/framework/cache/*
+skillhub_api/storage/framework/sessions/*
+skillhub_api/storage/framework/views/*
+skillhub_api/storage/logs/*
+skillhub_api/bootstrap/cache/*
+skillhub_api/database/*.sqlite
+
+# --- Rapports de qualite ---
+**/coverage.xml
+**/*.junit.xml
+**/.phpunit.result.cache
+**/.phpunit.cache
+
+# --- Divers ---
+**/.idea/
+**/.vscode/
+**/*.log
+**/.DS_Store

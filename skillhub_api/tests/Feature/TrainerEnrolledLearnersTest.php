@@ -24,6 +24,7 @@ class TrainerEnrolledLearnersTest extends TestCase
             $formation->user_id = $userId;
             $formation->save();
         }
+
         return $formation;
     }
 
@@ -53,7 +54,7 @@ class TrainerEnrolledLearnersTest extends TestCase
         $apprenant = User::factory()->create(['role' => 'apprenant']);
         $token = $apprenant->createToken('phpunit')->plainTextToken;
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/formateur/enrollments');
 
         $response
@@ -78,7 +79,7 @@ class TrainerEnrolledLearnersTest extends TestCase
         $this->enroll($learnerB, $myFormation, 60);
         $this->enroll($learnerC, $otherFormation, 10);
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/formateur/enrollments');
 
         $response
@@ -96,7 +97,7 @@ class TrainerEnrolledLearnersTest extends TestCase
         $trainer = User::factory()->create(['role' => 'formateur']);
         $token = $trainer->createToken('phpunit')->plainTextToken;
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/formateur/enrollments');
 
         $response
@@ -116,8 +117,8 @@ class TrainerEnrolledLearnersTest extends TestCase
         $this->enroll($learnerA, $formation, 10);
         $this->enroll($learnerB, $formation, 80);
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->getJson('/api/formateur/formations/' . $formation->id . '/learners');
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/formateur/formations/'.$formation->id.'/learners');
 
         $response
             ->assertStatus(200)
@@ -139,8 +140,8 @@ class TrainerEnrolledLearnersTest extends TestCase
         $foreignFormation = $this->makeFormation($otherTrainer->id, 'Pas a moi');
         $this->enroll($this->makeLearner(), $foreignFormation);
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->getJson('/api/formateur/formations/' . $foreignFormation->id . '/learners');
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/formateur/formations/'.$foreignFormation->id.'/learners');
 
         $response
             ->assertStatus(403)
@@ -155,8 +156,8 @@ class TrainerEnrolledLearnersTest extends TestCase
         $trainer = User::factory()->create(['role' => 'formateur']);
         $formation = $this->makeFormation($trainer->id);
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->getJson('/api/formateur/formations/' . $formation->id . '/learners');
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/formateur/formations/'.$formation->id.'/learners');
 
         $response
             ->assertStatus(403)
@@ -170,8 +171,8 @@ class TrainerEnrolledLearnersTest extends TestCase
 
         $formation = $this->makeFormation($trainer->id, 'Cours vide');
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->getJson('/api/formateur/formations/' . $formation->id . '/learners');
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/formateur/formations/'.$formation->id.'/learners');
 
         $response
             ->assertStatus(200)
@@ -188,7 +189,7 @@ class TrainerEnrolledLearnersTest extends TestCase
         $learner = $this->makeLearner();
         $this->enroll($learner, $formation, 42);
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/formateur/enrollments');
 
         $response

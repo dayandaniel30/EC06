@@ -23,8 +23,8 @@ class LearnerEnrollmentLimitTest extends TestCase
         $formations = [];
         for ($i = 0; $i < 6; $i++) {
             $formations[] = Formation::create([
-                'title' => 'Formation ' . ($i + 1),
-                'description' => 'Description ' . ($i + 1),
+                'title' => 'Formation '.($i + 1),
+                'description' => 'Description '.($i + 1),
                 'duration' => '10h',
                 'level' => 'beginner',
             ]);
@@ -39,7 +39,7 @@ class LearnerEnrollmentLimitTest extends TestCase
             ]);
         }
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/learner/enrollments', [
                 'formation_id' => $formations[5]->id,
             ]);
@@ -65,8 +65,8 @@ class LearnerEnrollmentLimitTest extends TestCase
         $formations = [];
         for ($i = 0; $i < 5; $i++) {
             $formations[] = Formation::create([
-                'title' => 'Formation ' . ($i + 1),
-                'description' => 'Description ' . ($i + 1),
+                'title' => 'Formation '.($i + 1),
+                'description' => 'Description '.($i + 1),
                 'duration' => '10h',
                 'level' => 'beginner',
             ]);
@@ -81,7 +81,7 @@ class LearnerEnrollmentLimitTest extends TestCase
             ]);
         }
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/learner/enrollments', [
                 'formation_id' => $formations[4]->id,
             ]);

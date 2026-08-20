@@ -40,7 +40,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (!Schema::hasTable('ratings')) {
+        if (! Schema::hasTable('ratings')) {
             return;
         }
 

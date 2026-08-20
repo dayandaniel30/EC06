@@ -1,0 +1,142 @@
+# syntax=docker/dockerfile:1.7
+# =============================================================================
+# Image du microservice metier Skillhub (Laravel)
+# =============================================================================
+# Le contexte de build est la RACINE du depot : les deux Dockerfile vivent au
+# meme endroit et partagent le meme .dockerignore, ce qui evite d'avoir deux
+# sources de verite pour la construction des images.
+#
+#   docker build -f Dockerfile.laravel --target runtime -t skillhub-laravel .
+#
+# `--target runtime` est obligatoire : ce fichier se termine par l'etape `test`,
+# que Docker construirait par defaut et qui lance PHPUnit au lieu de servir l'API.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Etape 1 : dependances Composer
+# ---------------------------------------------------------------------------
+# Isolee pour que le cache de couches ne soit invalide que lorsque
+# composer.json / composer.lock changent, et non a chaque edition de code.
+# ---------------------------------------------------------------------------
+FROM php:8.3-cli-alpine AS vendor
+
+RUN apk add --no-cache git unzip libzip-dev \
+ && docker-php-ext-install -j"$(nproc)" zip
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
+
+COPY skillhub_api/composer.json skillhub_api/composer.lock ./
+
+# --no-scripts : les scripts Laravel ont besoin du code applicatif, pas encore copie.
+RUN composer install \
+        --no-interaction \
+        --no-progress \
+        --no-scripts \
+        --no-autoloader \
+        --no-dev \
+        --prefer-dist
+
+# ---------------------------------------------------------------------------
+# Etape 2 : image d'execution
+# ---------------------------------------------------------------------------
+FROM php:8.3-cli-alpine AS runtime
+
+# Dependances de build isolees dans une couche virtuelle, supprimees ensuite :
+# l'image finale ne transporte pas de compilateur.
+RUN apk add --no-cache \
+        bash \
+        curl \
+        icu-libs \
+        libzip \
+        libpng \
+        oniguruma \
+        postgresql-libs \
+        mysql-client \
+ && apk add --no-cache --virtual .build-deps \
+        autoconf \
+        g++ \
+        make \
+        icu-dev \
+        libzip-dev \
+        libpng-dev \
+        oniguruma-dev \
+        libxml2-dev \
+        postgresql-dev \
+ && docker-php-ext-install -j"$(nproc)" \
+        pdo_mysql \
+        pdo_pgsql \
+        mbstring \
+        zip \
+        bcmath \
+        intl \
+        pcntl \
+ && apk del .build-deps
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
+
+# Le vendor precompile arrive avant le code : une modification de code source
+# ne declenche pas une reinstallation complete des dependances.
+COPY --from=vendor /app/vendor ./vendor
+COPY skillhub_api/ ./
+
+RUN composer dump-autoload --optimize --no-dev \
+ && mkdir -p \
+        storage/framework/cache \
+        storage/framework/sessions \
+        storage/framework/views \
+        storage/logs \
+        bootstrap/cache \
+ && chmod -R 775 storage bootstrap/cache
+
+COPY skillhub_api/docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Le conteneur ne tourne pas en root : une faille applicative ne donne pas
+# les pleins pouvoirs sur le systeme de fichiers de l'image.
+RUN addgroup -g 1000 -S skillhub \
+ && adduser -u 1000 -S skillhub -G skillhub \
+ && chown -R skillhub:skillhub /app
+
+USER skillhub
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8000/up || exit 1
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+
+# ---------------------------------------------------------------------------
+# Etape 3 : image de test (cible `test`, jamais publiee)
+# ---------------------------------------------------------------------------
+# L'image d'execution est construite en --no-dev : elle ne contient donc ni
+# PHPUnit, ni l'extension pdo_sqlite exigee par la base :memory: declaree dans
+# phpunit.xml. Cette cible ajoute les deux pour que la suite de tests se joue
+# dans Docker, sans PHP ni Composer installes sur la machine hote :
+#
+#   docker compose --profile tests run --rm skillhub-tests
+# ---------------------------------------------------------------------------
+FROM runtime AS test
+
+USER root
+
+# sqlite-dev est conserve : l'image de test n'est pas publiee, et le supprimer
+# emporterait avec lui la bibliotheque partagee dont pdo_sqlite a besoin.
+RUN apk add --no-cache sqlite-dev \
+ && docker-php-ext-install -j"$(nproc)" pdo_sqlite
+
+# Reinstallation avec les dependances de developpement (PHPUnit, Mockery...).
+RUN composer install --no-interaction --no-progress --prefer-dist \
+ && chown -R skillhub:skillhub /app
+
+USER skillhub
+
+# L'entrypoint de l'image d'execution attend une base MySQL et joue les
+# migrations : les tests utilisent SQLite et RefreshDatabase, on le neutralise.
+ENTRYPOINT []
+CMD ["php", "vendor/bin/phpunit", "--colors=never"]

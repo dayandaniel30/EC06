@@ -27,12 +27,12 @@ class DesinscriptionInactive extends Command
                             {--days= : Seuil d'inactivite en jours (30 par defaut)}
                             {--dry-run : Liste les desinscriptions sans les appliquer}";
 
-    protected $description = "Desinscrit automatiquement les apprenants inactifs de leurs formations en cours";
+    protected $description = 'Desinscrit automatiquement les apprenants inactifs de leurs formations en cours';
 
     public function handle(): int
     {
         $days = $this->option('days') === null
-            ? self::DEFAULT_INACTIVITY_DAYS
+            ? (int) config('skillhub.inactivity.unenroll_after_days', self::DEFAULT_INACTIVITY_DAYS)
             : (int) $this->option('days');
 
         if ($days < 1) {
@@ -67,7 +67,7 @@ class DesinscriptionInactive extends Command
                         (int) $lastActivity->diffInDays(Carbon::now()),
                     ];
 
-                    if (!$dryRun) {
+                    if (! $dryRun) {
                         $enrollment->delete();
 
                         Log::info('Desinscription automatique pour inactivite', [
@@ -114,7 +114,7 @@ class DesinscriptionInactive extends Command
 
         if ($dryRun) {
             return "{$count} desinscription(s) a effectuer pour inactivite de plus de {$days} jours "
-                . '(--dry-run : aucune suppression effectuee).';
+                .'(--dry-run : aucune suppression effectuee).';
         }
 
         return "{$count} desinscription(s) effectuee(s) pour inactivite de plus de {$days} jours.";
@@ -131,7 +131,7 @@ class DesinscriptionInactive extends Command
             return Carbon::parse($lastActivityAt);
         }
 
-        if (!empty($enrollment->enrolled_at)) {
+        if (! empty($enrollment->enrolled_at)) {
             return Carbon::parse($enrollment->enrolled_at);
         }
 

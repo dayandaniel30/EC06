@@ -1,0 +1,60 @@
+# syntax=docker/dockerfile:1.7
+# =============================================================================
+# Image du microservice d'authentification Skillhub (Spring Boot SSO)
+# =============================================================================
+# Build multi-etape : le JDK et Maven (~800 Mo) servent uniquement a compiler,
+# l'image finale ne contient qu'un JRE et le jar applicatif.
+#
+#   docker build -f Dockerfile.sso -t skillhub-sso .
+#
+# Note : le projet cible Java 21 (Spring Boot 4 + `java.version` du pom), pas
+# Java 17. Voir la section "Ecarts au cahier des charges" du README.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Etape 1 : compilation
+# ---------------------------------------------------------------------------
+FROM maven:3.9-eclipse-temurin-21 AS build
+
+WORKDIR /workspace
+
+# Le pom est copie seul pour que le telechargement des dependances soit mis en
+# cache tant que celui-ci ne change pas.
+COPY Skillhub_springboot/pom.xml .
+RUN mvn -B -ntp dependency:go-offline
+
+COPY Skillhub_springboot/src ./src
+
+# Les tests sont joues par la CI (etape Test), pas au moment de construire
+# l'image : cela evite de les rejouer a chaque build et garde la CI lisible.
+RUN mvn -B -ntp -DskipTests package \
+ && mv target/*.jar target/app.jar
+
+# ---------------------------------------------------------------------------
+# Etape 2 : execution
+# ---------------------------------------------------------------------------
+FROM eclipse-temurin:21-jre-alpine AS runtime
+
+RUN apk add --no-cache curl
+
+# Utilisateur non privilegie : meme principe que pour l'image Laravel.
+RUN addgroup -g 1000 -S skillhub \
+ && adduser -u 1000 -S skillhub -G skillhub
+
+WORKDIR /app
+
+COPY --from=build --chown=skillhub:skillhub /workspace/target/app.jar app.jar
+
+USER skillhub
+
+EXPOSE 8080
+
+# Sonde fournie par spring-boot-starter-actuator, autorisee sans authentification
+# dans SecurityConfig.
+HEALTHCHECK --interval=15s --timeout=5s --start-period=45s --retries=5 \
+    CMD curl -fsS http://127.0.0.1:8080/actuator/health || exit 1
+
+# `JAVA_OPTS` reste surchargeable depuis docker-compose (taille du tas, etc.).
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0"
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]

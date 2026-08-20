@@ -21,7 +21,7 @@ class TrackLastActivityTest extends TestCase
 
         $this->freezeTime();
 
-        $this->withHeader('Authorization', 'Bearer ' . $token)
+        $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/me')
             ->assertOk();
 
@@ -43,7 +43,7 @@ class TrackLastActivityTest extends TestCase
 
         $token = $learner->createToken('phpunit')->plainTextToken;
 
-        $this->withHeader('Authorization', 'Bearer ' . $token)
+        $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/me')
             ->assertOk();
 

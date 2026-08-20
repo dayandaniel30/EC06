@@ -15,7 +15,7 @@ class LearnerEnrollmentController extends Controller
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Utilisateur non connecte'], 401);
         }
 
@@ -43,7 +43,7 @@ class LearnerEnrollmentController extends Controller
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Utilisateur non connecte'], 401);
         }
 
@@ -76,7 +76,7 @@ class LearnerEnrollmentController extends Controller
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Utilisateur non connecte'], 401);
         }
 
@@ -142,7 +142,7 @@ class LearnerEnrollmentController extends Controller
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Utilisateur non connecte'], 401);
         }
 
@@ -166,7 +166,7 @@ class LearnerEnrollmentController extends Controller
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Utilisateur non connecte'], 401);
         }
 

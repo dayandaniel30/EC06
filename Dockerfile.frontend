@@ -1,0 +1,47 @@
+# syntax=docker/dockerfile:1.7
+# =============================================================================
+# Image du tableau de bord formateur (React)
+# =============================================================================
+# Comme les deux autres Dockerfile, le contexte de build est la RACINE du depot
+# afin de partager le meme .dockerignore.
+#
+#   docker build -f Dockerfile.frontend -t skillhub-frontend .
+#
+# Node 16 et non une version recente : react-scripts 3.3.0 repose sur webpack 4,
+# dont le hachage md4 est refuse par l'OpenSSL 3 livre avec Node 17 et au-dela.
+# Epingler la version ici evite d'imposer un Node ancien sur la machine hote.
+# =============================================================================
+FROM node:16-alpine
+
+WORKDIR /app
+
+# Les dependances sont installees avant la copie du code : editer un composant
+# ne declenche pas une reinstallation complete de node_modules.
+# `npm install` et non `npm ci` : le lockfile du depot est au format 1 (npm 6),
+# que `npm ci` refuse de consommer tel quel.
+COPY ["Tableau de bord - Formateur/package.json", "Tableau de bord - Formateur/package-lock.json", "./"]
+
+RUN npm install --no-audit --no-fund --loglevel=error
+
+COPY ["Tableau de bord - Formateur/", "./"]
+
+# Les scripts npm du depot utilisent la syntaxe `set VAR=...` de cmd.exe, qui
+# n'existe pas sous Alpine : react-scripts est donc invoque directement.
+#
+# HOST=0.0.0.0 : sans cela le serveur de developpement n'ecoute que la boucle
+# locale du conteneur et le port publie reste injoignable depuis l'hote.
+ENV HOST=0.0.0.0 \
+    PORT=3000 \
+    BROWSER=none \
+    CI=false
+
+# Le conteneur ne tourne pas en root : l'image node fournit deja `node`.
+RUN chown -R node:node /app
+USER node
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD wget -q --spider http://127.0.0.1:3000/ || exit 1
+
+CMD ["node_modules/.bin/react-scripts", "start"]

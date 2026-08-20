@@ -10,9 +10,7 @@ use Illuminate\Support\Facades\Validator;
 
 class AuthSsoController extends Controller
 {
-    public function __construct(private readonly SsoClient $ssoClient)
-    {
-    }
+    public function __construct(private readonly SsoClient $ssoClient) {}
 
     public function login(Request $request): JsonResponse
     {
@@ -48,6 +46,13 @@ class AuthSsoController extends Controller
         ]);
     }
 
+    /**
+     * Retourne l'identite courante resolue par le SSO.
+     *
+     * `$request->user()` repond ici grace a `Auth::setUser()` appele par
+     * {@see \App\Http\Middleware\SpringSsoAuthenticate} : l'utilisateur local
+     * est synchronise le temps de la requete, sans session persistee.
+     */
     public function me(Request $request): JsonResponse
     {
         return response()->json([
@@ -55,6 +60,7 @@ class AuthSsoController extends Controller
             'subject' => $request->attributes->get('sso_subject'),
             'role' => $request->attributes->get('sso_role'),
             'claims' => $request->attributes->get('sso_claims'),
+            'user' => $request->user(),
         ]);
     }
 

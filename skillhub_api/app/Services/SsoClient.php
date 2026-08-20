@@ -12,12 +12,12 @@ class SsoClient
         $response = Http::timeout((int) config('services.sso.timeout', 5))
             ->acceptJson()
             ->asJson()
-            ->post(rtrim((string) config('services.sso.base_url'), '/') . '/auth/login', [
+            ->post(rtrim((string) config('services.sso.base_url'), '/').'/auth/login', [
                 'username' => $username,
                 'password' => $password,
             ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             return null;
         }
 
@@ -29,19 +29,19 @@ class SsoClient
         try {
             $response = Http::timeout((int) config('services.sso.timeout', 5))
                 ->acceptJson()
-                ->withHeaders(['Authorization' => 'Bearer ' . $bearerToken])
-                ->get(rtrim((string) config('services.sso.base_url'), '/') . '/auth/validate');
+                ->withHeaders(['Authorization' => 'Bearer '.$bearerToken])
+                ->get(rtrim((string) config('services.sso.base_url'), '/').'/auth/validate');
         } catch (ConnectionException $e) {
             return null;
         }
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             return null;
         }
 
         $data = $response->json();
 
-        if (!is_array($data) || ($data['valid'] ?? false) !== true) {
+        if (! is_array($data) || ($data['valid'] ?? false) !== true) {
             return null;
         }
 
@@ -54,14 +54,14 @@ class SsoClient
             $response = Http::timeout((int) config('services.sso.timeout', 5))
                 ->acceptJson()
                 ->asJson()
-                ->post(rtrim((string) config('services.sso.base_url'), '/') . '/auth/forgot-password', [
+                ->post(rtrim((string) config('services.sso.base_url'), '/').'/auth/forgot-password', [
                     'username' => $username,
                 ]);
         } catch (ConnectionException $e) {
             return null;
         }
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             return null;
         }
 
@@ -74,7 +74,7 @@ class SsoClient
             $response = Http::timeout((int) config('services.sso.timeout', 5))
                 ->acceptJson()
                 ->asJson()
-                ->post(rtrim((string) config('services.sso.base_url'), '/') . '/auth/reset-password', [
+                ->post(rtrim((string) config('services.sso.base_url'), '/').'/auth/reset-password', [
                     'token' => $token,
                     'newPassword' => $newPassword,
                 ]);
@@ -82,7 +82,7 @@ class SsoClient
             return null;
         }
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             return null;
         }
 

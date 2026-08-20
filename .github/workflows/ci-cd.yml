@@ -1,107 +1,158 @@
+# =============================================================================
+# Skillhub - Integration et deploiement continus
+# =============================================================================
+# Le pipeline suit strictement l'ordre impose :
+#
+#   1. Checkout       recuperation du code (profondeur complete)
+#   2. Install        dependances Laravel (composer) et Spring Boot (maven)
+#   3. Lint           PHPStan niveau 5 (PHP) et Checkstyle (Java)
+#   4. Test           PHPUnit + couverture Clover, JUnit + couverture JaCoCo
+#   5. SonarCloud     analyse qualite des deux microservices
+#   6. Build images   construction des images Docker (tags SHA + latest)
+#   7. Push images    publication vers la registry, uniquement sur `main`
+#
+# Les etapes 1 a 4 tournent en parallele pour les deux microservices : ce sont
+# deux bases de code independantes. Les etapes 5 a 7 sont sequentielles et
+# chainees par `needs`, ce qui garantit qu'aucune image n'est construite tant
+# que le lint, les tests et l'analyse qualite ne sont pas passes.
+#
+# Aucun secret n'apparait en clair : tout provient du magasin de secrets GitHub.
+# =============================================================================
+
 name: CI/CD
 
 on:
   push:
-    branches: [dev, main]
+    branches: [main, dev]
   pull_request:
-    branches: [dev, main]
+    branches: [main, dev]
 
+# Droits minimaux : le workflow lit le depot, il n'ecrit jamais dedans.
 permissions:
   contents: read
   pull-requests: read
 
+# Une nouvelle execution annule la precedente sur la meme reference : inutile de
+# construire des images pour un commit deja remplace.
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   LARAVEL_DIR: skillhub_api
   SPRING_DIR: Skillhub_springboot
-  REGISTRY_URL: ${{ vars.REGISTRY_URL || 'docker.io' }}
+  PHP_VERSION: '8.3'
+  JAVA_VERSION: '21'
   IMAGE_LARAVEL: skillhub-laravel
   IMAGE_SSO: skillhub-sso
 
 jobs:
-  # ============================================================
-  # Laravel: checkout → install → lint → test
-  # ============================================================
+
+  # ===========================================================================
+  # Laravel : etapes 1 a 4
+  # ===========================================================================
   laravel-ci:
-    name: Laravel CI
+    name: Laravel - install, lint, test
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ${{ env.LARAVEL_DIR }}
 
     steps:
-      - name: Checkout
+      # --- 1. Checkout ----------------------------------------------------
+      - name: 1. Checkout
         uses: actions/checkout@v4
+        with:
+          # Profondeur complete : SonarCloud a besoin de l'historique git pour
+          # attribuer les lignes modifiees (blame) et calculer le "new code".
+          fetch-depth: 0
 
-      - name: Setup PHP
+      - name: Setup PHP ${{ env.PHP_VERSION }}
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
-          extensions: pdo_mysql, mbstring, zip, bcmath, intl
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_mysql, pdo_sqlite, mbstring, zip, bcmath, intl, dom, xml
+          # pcov est nettement plus rapide que Xdebug pour la seule couverture.
           coverage: pcov
           tools: composer:v2
 
-      - name: Cache Composer dependencies
+      - name: Cache des dependances Composer
         uses: actions/cache@v4
         with:
           path: ${{ env.LARAVEL_DIR }}/vendor
-          key: composer-${{ runner.os }}-${{ hashFiles(format('{0}/composer.lock', env.LARAVEL_DIR)) }}
-          restore-keys: composer-${{ runner.os }}-
+          key: composer-${{ runner.os }}-php${{ env.PHP_VERSION }}-${{ hashFiles(format('{0}/composer.lock', env.LARAVEL_DIR)) }}
+          restore-keys: composer-${{ runner.os }}-php${{ env.PHP_VERSION }}-
 
-      - name: Install dependencies
+      # --- 2. Install -----------------------------------------------------
+      - name: 2. Install - dependances Laravel
         run: composer install --no-interaction --no-progress --prefer-dist
 
-      - name: Lint (Laravel Pint)
-        run: ./vendor/bin/pint --test
-
-      - name: Prepare test environment
+      - name: Preparation de l'environnement de test
         run: |
-          cp .env.example .env 2>/dev/null || true
-          [ -f .env ] || printf 'APP_NAME=Laravel\nAPP_ENV=testing\nAPP_DEBUG=true\nAPP_URL=http://localhost\nDB_CONNECTION=sqlite\nDB_DATABASE=:memory:\n' > .env
+          cp .env.example .env
           php artisan key:generate --force
 
-      - name: Run PHPUnit with coverage
-        run: php artisan test --coverage-clover=coverage.xml
+      # --- 3. Lint --------------------------------------------------------
+      - name: 3. Lint - PHPStan (niveau 5)
+        run: ./vendor/bin/phpstan analyse --no-progress --memory-limit=1G
 
-      - name: Upload Laravel coverage
+      - name: 3b. Lint - Laravel Pint (style)
+        run: ./vendor/bin/pint --test
+
+      # --- 4. Test --------------------------------------------------------
+      - name: 4. Test - PHPUnit avec couverture Clover
+        run: php artisan test --coverage-clover=coverage.xml --log-junit=phpunit.junit.xml
+
+      - name: Publication du rapport de couverture Laravel
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: laravel-coverage
-          path: ${{ env.LARAVEL_DIR }}/coverage.xml
+          path: |
+            ${{ env.LARAVEL_DIR }}/coverage.xml
+            ${{ env.LARAVEL_DIR }}/phpunit.junit.xml
           if-no-files-found: warn
-          retention-days: 3
+          retention-days: 5
 
-  # ============================================================
-  # Spring Boot: checkout → install → lint → test
-  # ============================================================
+  # ===========================================================================
+  # Spring Boot : etapes 1 a 4
+  # ===========================================================================
   spring-ci:
-    name: Spring Boot CI
+    name: Spring SSO - install, lint, test
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ${{ env.SPRING_DIR }}
 
     steps:
-      - name: Checkout
+      # --- 1. Checkout ----------------------------------------------------
+      - name: 1. Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Setup JDK 21
+      - name: Setup JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: ${{ env.JAVA_VERSION }}
           cache: maven
 
-      - name: Install dependencies (offline resolution)
-        run: mvn -B -ntp dependency:go-offline
+      # --- 2. Install -----------------------------------------------------
+      - name: 2. Install - dependances Spring Boot
+        run: mvn -B -ntp dependency:resolve
 
-      - name: Lint (compile with -Werror)
-        run: mvn -B -ntp compile -Dmaven.compiler.showWarnings=true
+      # --- 3. Lint --------------------------------------------------------
+      - name: 3. Lint - Checkstyle
+        run: mvn -B -ntp checkstyle:check
 
-      - name: Run tests (with JaCoCo coverage)
+      # --- 4. Test --------------------------------------------------------
+      # `verify` execute les tests puis genere le rapport JaCoCo XML consomme
+      # par SonarCloud ; `test` seul ne produirait pas ce rapport.
+      - name: 4. Test - JUnit avec couverture JaCoCo
         run: mvn -B -ntp verify
 
-      - name: Upload Spring coverage
+      - name: Publication du rapport de couverture Spring
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -109,35 +160,39 @@ jobs:
           path: |
             ${{ env.SPRING_DIR }}/target/site/jacoco/jacoco.xml
             ${{ env.SPRING_DIR }}/target/classes
+            ${{ env.SPRING_DIR }}/target/surefire-reports
           if-no-files-found: warn
-          retention-days: 3
+          retention-days: 5
 
-  # ============================================================
-  # SonarCloud: single scan covering both sub-projects
-  # ============================================================
+  # ===========================================================================
+  # 5. SonarCloud : analyse unique couvrant les deux microservices
+  # ===========================================================================
   sonarcloud:
-    name: SonarCloud
+    name: 5. SonarCloud
     needs: [laravel-ci, spring-ci]
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout (full history for blame)
+      - name: Checkout (historique complet pour le blame)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Download Laravel coverage
+      # Les rapports sont recuperes des jobs precedents plutot que regeneres :
+      # les tests ne tournent qu'une seule fois dans tout le pipeline.
+      - name: Recuperation de la couverture Laravel
         uses: actions/download-artifact@v4
         with:
           name: laravel-coverage
           path: ${{ env.LARAVEL_DIR }}
 
-      - name: Download Spring coverage
+      - name: Recuperation de la couverture Spring
         uses: actions/download-artifact@v4
         with:
           name: spring-coverage
           path: ${{ env.SPRING_DIR }}/target
 
-      - name: SonarCloud Scan
+      - name: Analyse SonarCloud
         uses: SonarSource/sonarqube-scan-action@v4
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -147,61 +202,106 @@ jobs:
             -Dsonar.organization=${{ vars.SONAR_ORG }}
             -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
 
-  # ============================================================
-  # Build & push Docker images (only on pushes to dev/main)
-  # ============================================================
-  build-and-push:
-    name: Build & Push Images
+  # ===========================================================================
+  # 6. Build images  /  7. Push images
+  # ===========================================================================
+  # Les deux etapes vivent dans le meme job : le push reutilise le cache de
+  # build produit juste avant, au lieu de recompiler les images dans un job
+  # separe. L'ordre build -> push reste explicite et le push est conditionne a
+  # un `push` sur `main`.
+  # ===========================================================================
+  docker-images:
+    name: 6-7. Build & Push images
     needs: [sonarcloud]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     runs-on: ubuntu-latest
+
+    env:
+      REGISTRY_URL: ${{ vars.REGISTRY_URL || 'docker.io' }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to registry
+      - name: Calcul des tags d'image
+        id: meta
+        run: |
+          NAMESPACE="${{ secrets.REGISTRY_USER }}"
+          REGISTRY="${{ env.REGISTRY_URL }}"
+          {
+            echo "laravel_tags=$REGISTRY/$NAMESPACE/${{ env.IMAGE_LARAVEL }}:${{ github.sha }},$REGISTRY/$NAMESPACE/${{ env.IMAGE_LARAVEL }}:latest"
+            echo "sso_tags=$REGISTRY/$NAMESPACE/${{ env.IMAGE_SSO }}:${{ github.sha }},$REGISTRY/$NAMESPACE/${{ env.IMAGE_SSO }}:latest"
+          } >> "$GITHUB_OUTPUT"
+
+      # --- 6. Build images ------------------------------------------------
+      # `push: false` : sur une pull request, on valide que les images se
+      # construisent sans jamais rien publier.
+      - name: 6. Build - image Laravel
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.laravel
+          push: false
+          tags: ${{ steps.meta.outputs.laravel_tags }}
+          cache-from: type=gha,scope=laravel
+          cache-to: type=gha,scope=laravel,mode=max
+
+      - name: 6. Build - image Spring SSO
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.sso
+          push: false
+          tags: ${{ steps.meta.outputs.sso_tags }}
+          cache-from: type=gha,scope=sso
+          cache-to: type=gha,scope=sso,mode=max
+
+      # --- 7. Push images -------------------------------------------------
+      # Uniquement apres merge/push sur `main`. Le login n'a lieu qu'a ce
+      # moment : une pull request issue d'un fork n'accede jamais aux secrets.
+      - name: 7. Push - authentification registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY_URL }}
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_TOKEN }}
 
-      - name: Compute image tags
-        id: meta
-        run: |
-          SHORT_SHA="$(echo "$GITHUB_SHA" | cut -c1-7)"
-          BRANCH="${GITHUB_REF##*/}"
-          NAMESPACE="${{ secrets.REGISTRY_USER }}"
-          echo "laravel_tags=${{ env.REGISTRY_URL }}/$NAMESPACE/${{ env.IMAGE_LARAVEL }}:$BRANCH,${{ env.REGISTRY_URL }}/$NAMESPACE/${{ env.IMAGE_LARAVEL }}:sha-$SHORT_SHA" >> "$GITHUB_OUTPUT"
-          echo "sso_tags=${{ env.REGISTRY_URL }}/$NAMESPACE/${{ env.IMAGE_SSO }}:$BRANCH,${{ env.REGISTRY_URL }}/$NAMESPACE/${{ env.IMAGE_SSO }}:sha-$SHORT_SHA" >> "$GITHUB_OUTPUT"
-
-      - name: Build & push Laravel image
+      - name: 7. Push - image Laravel
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v6
         with:
-          context: ${{ env.LARAVEL_DIR }}
-          file: ${{ env.LARAVEL_DIR }}/Dockerfile
+          context: .
+          file: ./Dockerfile.laravel
           push: true
           tags: ${{ steps.meta.outputs.laravel_tags }}
+          # Le cache vient de l'etape 6 : rien n'est reconstruit ici.
           cache-from: type=gha,scope=laravel
-          cache-to: type=gha,scope=laravel,mode=max
 
-      - name: Build & push Spring SSO image
+      - name: 7. Push - image Spring SSO
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v6
         with:
-          context: ${{ env.SPRING_DIR }}
-          file: ${{ env.SPRING_DIR }}/Dockerfile
+          context: .
+          file: ./Dockerfile.sso
           push: true
           tags: ${{ steps.meta.outputs.sso_tags }}
           cache-from: type=gha,scope=sso
-          cache-to: type=gha,scope=sso,mode=max
 
-      - name: Summary
+      - name: Recapitulatif
         run: |
           {
-            echo "### Images pushed"
+            echo "### Images"
+            echo ""
+            if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              echo "Publiees vers \`${{ env.REGISTRY_URL }}\` :"
+            else
+              echo "Construites et validees (non publiees hors de \`main\`) :"
+            fi
             echo ""
             echo "- \`${{ steps.meta.outputs.laravel_tags }}\`"
             echo "- \`${{ steps.meta.outputs.sso_tags }}\`"

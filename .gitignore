@@ -1,3 +1,10 @@
+# Environnement Docker Compose (racine)
+# Ce fichier contient les secrets injectes dans les conteneurs : il ne doit
+# jamais etre commite. Seul .env.example est versionne.
+.env
+.env.*
+!.env.example
+
 # IDE / OS
 .idea/
 .vscode/
@@ -20,7 +27,10 @@ skillhub_api/bootstrap/cache/*.php
 skillhub_api/public/storage
 skillhub_api/public/hot
 skillhub_api/coverage.xml
+skillhub_api/phpunit.junit.xml
 skillhub_api/.phpunit.result.cache
+skillhub_api/.phpunit.cache/
+skillhub_api/.phpstan.cache/
 
 # Spring Boot / Maven
 Skillhub_springboot/target/*
@@ -35,6 +45,10 @@ Skillhub_springboot/HELP.md
 *.log
 *.tmp
 *.bak
+
+# Dashboard React
+Tableau de bord - Formateur/node_modules/
+Tableau de bord - Formateur/build/
 
 # Misc
 *.zip
