@@ -34,7 +34,7 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
-            'role' => ['nullable', 'string', 'in:formateur'],
+            'role' => ['nullable', 'string', 'in:apprenant,formateur'],
         ]);
 
         if ($validator->fails()) {
@@ -48,7 +48,7 @@ class AuthController extends Controller
             'name' => $request->string('name')->toString(),
             'email' => $request->string('email')->toString(),
             'password' => Hash::make($request->string('password')->toString()),
-            'role' => $request->input('role', 'formateur'),
+            'role' => $request->input('role', 'apprenant'),
         ]);
 
         $token = $this->issueApiToken($user, 'register-access');

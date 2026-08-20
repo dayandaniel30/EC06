@@ -2,10 +2,13 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use App\Services\SsoClient;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 class SsoAuthenticate
@@ -33,10 +36,28 @@ class SsoAuthenticate
             ], 401);
         }
 
-        $request->attributes->set('sso_subject', $claims['subject'] ?? null);
-        $request->attributes->set('sso_role', $claims['role'] ?? null);
+        $subject = (string) ($claims['subject'] ?? '');
+        $role = strtolower((string) ($claims['role'] ?? 'apprenant'));
+
+        $user = null;
+        if ($subject !== '') {
+            $user = User::firstOrNew(['email' => $subject]);
+            if (!$user->exists) {
+                $user->password = Hash::make(Str::random(40));
+                $user->name = strstr($subject, '@', true) ?: $subject;
+            }
+            $user->role = $role;
+            $user->save();
+        }
+
+        $request->attributes->set('sso_subject', $subject);
+        $request->attributes->set('sso_role', $role);
         $request->attributes->set('sso_claims', $claims);
         $request->attributes->set('sso_token', $token);
+
+        if ($user) {
+            $request->setUserResolver(fn () => $user);
+        }
 
         return $next($request);
     }
